@@ -16,13 +16,11 @@ st.caption("TACTICAL SCM RISK INTELLIGENCE & REAL-TIME MARITIME ANOMALY DETECTOR
 st.write("---")
 
 # 3. 위험도 통계 마스터 데이터 매트릭스 (수학적 100점 만점 설계)
-# [A] 국가 위험도 (순수 최고 4.7 배점 -> 국가 배점 만점은 50점)
 country_risk_matrix = {
     '태국': 4.5, '미국': 4.2, '베트남': 3.8, '말레이시아': 3.5, 
     '중국(홍콩 포함)': 3.0, '라오스': 4.0, '독일': 2.8, '중남미(브라질 등)': 4.7
 }
 
-# [B] 품목별 위험밀도 (순수 최고 2.5 배점 -> 물품 배점 만점은 50점)
 item_risk_matrix = {
     '커피 (HS 0901)': {'density': 2.5, 'lcl_weight': 1.5, 'desc': '강한 향으로 마약 탐지견의 후각 교란 유인 매우 높음'},
     '사탕, 초콜릿 (HS 1704)': {'density': 2.2, 'lcl_weight': 1.4, 'desc': '젤리나 사탕 모양으로 제조된 변종 마약(THC 등) 자체 위장 우범'},
@@ -44,28 +42,23 @@ selected_item = st.sidebar.selectbox("2. 반입 품목(Item HS) 선택", list(it
 cargo_type = st.sidebar.radio("3. 통관 유통 형태(SCM Variable)", ["LCL (소량 혼재 화물)", "FCL (단독 대량 화물)"])
 
 # 5. 수학적으로 정밀한 100점 만점 환산 스코어링 알고리즘 코어
-# [A] 국가 위험도 점수 산출 (최대값인 4.7점을 50점 만점으로 스케일링)
 country_base = country_risk_matrix[selected_country]
 final_country_risk = (country_base / 4.7) * 50.0
 
-# [B] 물품 위험도 점수 산출 (LCL 가중치 적용 유무 분기 처리)
 item_density = item_risk_matrix[selected_item]['density']
 item_desc = item_risk_matrix[selected_item]['desc']
 
 if cargo_type == "LCL (소량 혼재 화물)":
     scm_weight = item_risk_matrix[selected_item]['lcl_weight']
     status_alert = "🚨 [SYSTEM] LCL DIFFERENTIAL FILTER ENGAGED"
-    # LCL일 때 나올 수 있는 물품 리스크 최대값은 커피 기준 2.5 * 1.5 = 3.75점
-    # 이 최대값 3.75점을 물품 위험도 배점 한도인 50점 만점으로 정규화 환산
     raw_item_score = item_density * scm_weight
     final_item_risk = (raw_item_score / 3.75) * 50.0
 else:
     scm_weight = 1.0
     status_alert = "✅ [SYSTEM] FCL STANDARD PROTOCOL APPLIED"
-    # FCL일 때는 가중치가 배제되므로 순수 위험밀도 최대값인 2.5점을 50점 만점으로 환산
     final_item_risk = (item_density / 2.5) * 50.0
 
-# [C] 최종 위험도 결합 (사용자 지정: 국가 위험도 + 최종 물품 위험도 = 100점 만점)
+# 최종 위험도 결합 (국가 위험도 + 최종 물품 위험도 = 100점 만점)
 final_comprehensive_risk = final_country_risk + final_item_risk
 
 # 6. 메인 화면 상단 - 계측 대시보드 컴포넌트 출력
@@ -86,7 +79,6 @@ with col2:
     )
 
 with col3:
-    # 사용자 정의 커트라인 인디케이터 바인딩 (80점 이상 / 60점 이상 / 50점 이하)
     if final_comprehensive_risk >= 80.0:
         control_badge = "🚨 [즉시 개장검사 대상]"
     elif final_comprehensive_risk >= 60.0:
@@ -110,7 +102,6 @@ layout_col1, layout_col2 = st.columns([1.1, 0.9])
 with layout_col1:
     st.subheader("🧠 자비스 리스크 진단 근거 (Explanation Dashboard)")
     
-    # 정성적 가명 명세와 수식을 조합한 설명서 자동 생성
     st.info(f"""
     **[종합 모니터링 리포트]**
     * **국가 보안 프로파일링:** 분석 대상 화물은 누적 적발 규모가 높은 우범 권역인 **[{selected_country}]**을 통하여 국내 공급망에 진입하였습니다. 이에 의거하여 50점 만점 중 **{final_country_risk:.1f}점**의 국가 위험 가산 점수가 할당되었습니다.
@@ -119,7 +110,6 @@ with layout_col1:
     * **결론 및 단속 제언:** 최종 산출 수식 `국가 환산점수({final_country_risk:.1f}) + 최종 물품 위험도({final_item_risk:.1f})`에 의해 총점 **{final_comprehensive_risk:.1f}점**이 도출되었습니다. 본 화물은 통제 규칙에 의거하여 현재 **{control_badge}** 등급 조치 처리가 필요합니다.
     """)
     
-    # 정량 데이터 명세 매트릭스 표
     st.dataframe(
         pd.DataFrame({
             "위험 분석 지표 컴포넌트": ["출발지(Origin) 국가 환산 위험 점수", "품목별 기본 마약 위험밀도 점수", "SCM 물류 형태 가중치", "종합 보안 통제 스코어"],
@@ -129,3 +119,21 @@ with layout_col1:
     )
 
 with layout_col2:
+    st.subheader("📡 실시간 국경 인텔리전스 통신망 피드")
+    
+    news_tab1, news_tab2 = st.tabs(["💊 GLOBAL DRUG INTELLIGENCE", "🚢 MARITIME & SCM ISSUE"])
+    
+    with news_tab1:
+        st.caption("🚨 `LIVE FEED: 글로벌 마약 우범 적발 속보`")
+        st.error("**[방금 전]** 미국 DEA, 동남아발 LCL 컨테이너 내부 화장품 제형 은닉 필로폰 45kg 단속")
+        st.warning("**[10분 전]** 태국 람차방 항만, 화물 가방 내벽 안감에 라미네이트 수법으로 숨긴 코카인 밀수 조직 적발")
+        st.info("**[1시간 전]** UNODC 보고서 발표: 골든 트라이앵글 유입 필로폰 국내 소매가 전년 대비 14% 변동 폭 확대")
+            
+    with news_tab2:
+        st.caption("🔵 `LIVE FEED: 글로벌 해운물류 리드타임 이상징후`")
+        st.info("**[실시간]** 싱가포르 항만 CFS 혼재 창고 화물 체류 시간(Dwell Time) 표준 대비 36시간 돌발 정체 발생")
+        st.warning("**[30분 전]** 파나마 운하 통항 제한 여파로 소형 포워더 우회 항로(LCL 환적) 탐색 징후 증가")
+        st.code("LOG: CONGESTION INDEX HIGH AT EAST ASIA ROUTE", language="bash")
+
+st.write("---")
+st.text(f"SYSTEM LOG: AGENT CALCULATED AT {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | VERSION 2.5-STABLE")
