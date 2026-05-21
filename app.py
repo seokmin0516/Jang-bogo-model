@@ -1,100 +1,105 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import numpy as np
 
-# 1. 페이지 설정 및 디자인
-st.set_page_config(page_title="JANG BOGO: Logistics Risk System", layout="wide")
+# 1. 페이지 기본 설정 및 하이엔드 테마 스타일링
+st.set_page_config(
+    page_title="관세 국경 SCM 실시간 위험도 모니터링 컨트롤 타워",
+    page_icon="🚢",
+    layout="wide"
+)
 
 st.markdown("""
     <style>
-    .main { background-color: #00050a; color: #00d4ff; }
-    .stApp { background-color: #00050a; }
-    label { color: #00d4ff !important; font-weight: bold; }
-    .result-box { 
-        background-color: #001a33; 
-        border: 2px solid #00d4ff; 
-        padding: 50px; 
-        border-radius: 20px; 
-        text-align: center;
-        box-shadow: 0 0 40px #0055ff;
-        margin-top: 20px;
-    }
-    .score-text { 
-        font-size: 140px !important; 
-        color: #00ffcc; 
-        text-shadow: 0 0 25px #00ffcc; 
-        margin: 10px 0;
-        font-family: 'Impact', sans-serif;
-    }
-    hr { border: 1px solid #0055ff; }
+    .main { background-color: #F8F9FA; }
+    h1 { color: #1B365D; font-family: 'Malgun Gothic', sans-serif; font-weight: bold; }
+    h3 { color: #2C3E50; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid #1B365D; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_html=True)
 
-# 2. 장보고 엔진 (사용자 조건 반영: 파일명 소문자, 시트명 대문자)
-@st.cache_data
-def build_jangbogo_engine():
-    try:
-        # 파일명은 소문자 'data.xlsx', 시트명은 대문자 'COUNTRY', 'ITEM'
-        country_df = pd.read_excel('data.xlsx', sheet_name='COUNTRY')
-        item_df = pd.read_excel('data.xlsx', sheet_name='ITEM')
-        
-        # 모든 경우의 수 생성 (Cross Join)
-        country_df['key'] = 1
-        item_df['key'] = 1
-        total_df = pd.merge(country_df, item_df, on='key').drop('key', axis=1)
-        
-        # 4:6 가중치 적용 (국가 0.4 : 물품 0.6)
-        total_df['raw_score'] = (total_df['국가점수'] * 0.4) + (total_df['물품점수'] * 0.6)
-        
-        # 전체 조합 내 상대적 백분위 환산 (100점 만점)
-        total_df['final_score'] = total_df['raw_score'].rank(pct=True) * 100
-        
-        return total_df, country_df['국가명'].unique(), item_df['HS코드'].unique()
-    except Exception as e:
-        # 에러 메시지를 화면에 구체적으로 표시
-        st.error(f"데이터 로드 실패: {e}")
-        st.info("💡 확인사항: 파일명이 'data.xlsx'이고 시트명이 'COUNTRY', 'ITEM'인지 확인해주세요.")
-        return None, None, None
+st.title("🚢 국경 SCM 실시간 우범 공급망 모니터링 시스템")
+st.subheader("물류 형태(LCL/FCL) 및 국가·품목 복합 리스크 매트릭스 엔진")
 
-# 엔진 구동
-total_model, country_list, item_list = build_jangbogo_engine()
+# 2. 내부 마스터 하드코딩 데이터 세팅 (전처리 및 누락 방지 안정화)
+# [A] 국가별 기본 위험도 마스터 (최근 분기별 적발 빈도 및 규모 가중치)
+country_risk_matrix = {
+    '태국': 4.5, '미국': 4.2, '베트남': 3.8, '말레이시아': 3.5, 
+    '중국(홍콩 포함)': 3.0, '라오스': 4.0, '독일': 2.8, '중남미(브라질 등)': 4.7
+}
 
-# 3. 사용자 인터페이스
-if total_model is not None:
-    st.markdown("<h1 style='text-align: center; color: #00d4ff; letter-spacing: 10px;'>⚓ JANG BOGO: ANOMALY DETECTION</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #58a6ff;'>Incheon National Univ. Logistics Intelligence Model</p>", unsafe_allow_html=True)
-    st.write("---")
+# [B] 품목별 순수 위험밀도 및 고유 가중치 테이블
+item_risk_matrix = {
+    '커피 (HS 0901)': {'density': 2.5, 'lcl_weight': 1.5, 'desc': '강한 향으로 탐지견 후각 교란 유인 높음'},
+    '사탕, 초콜릿 (HS 1704)': {'density': 2.2, 'lcl_weight': 1.4, 'desc': '변종 마약(THC 젤리 등) 자체 위장 우범'},
+    '화장품 (HS 3304)': {'density': 2.4, 'lcl_weight': 1.4, 'desc': '액체/크림 유통 및 이중 용기 제작 취약'},
+    '시리얼, 곡물 (HS 1904)': {'density': 1.8, 'lcl_weight': 1.3, 'desc': '육안 및 X-ray 판독 사각지대 활용'},
+    '가방, 케이스 (HS 4202)': {'density': 2.0, 'lcl_weight': 1.3, 'desc': '내부 벽면 라미네이트 이중 은닉 다수'},
+    '견과류, 과일 가공품 (HS 2008)': {'density': 1.5, 'lcl_weight': 1.2, 'desc': '캔/병 내부 내용물 혼재 우범'},
+    '제재목 (HS 4407)': {'density': 0.5, 'lcl_weight': 1.1, 'desc': '원목 형태, 대형 화물 위주'},
+    '가죽 신발류 (HS 6403)': {'density': 1.6, 'lcl_weight': 1.3, 'desc': '신발 굽 및 내부 빈 공간 활용'},
+    '자동자료처리기계 (HS 8471)': {'density': 0.8, 'lcl_weight': 1.1, 'desc': 'B2B 기계 장비 내부 공간 악용'},
+    '기타 기계류 (HS 8479)': {'density': 0.7, 'lcl_weight': 1.1, 'desc': 'B2B 기계 구조물 은닉 수법'},
+    '가정용 전기기기 (HS 8509)': {'density': 1.4, 'lcl_weight': 1.2, 'desc': '소형 가전 내부 부품 분해 후 은닉'}
+}
 
-    col1, col2 = st.columns(2)
-    with col1:
-        selected_country = st.selectbox("출발 국가(ORIGIN)", country_list)
-    with col2:
-        selected_item = st.selectbox("품목(HS-CODE)", item_list)
+# 3. 사용자 인터페이스(UI) 사이드바 구성
+st.sidebar.header("📥 실시간 화물 프로파일링 입력")
 
-    # 선택된 값에 따른 결과 추출
-    result_data = total_model[
-        (total_model['국가명'] == selected_country) & 
-        (total_model['HS코드'] == selected_item)
-    ].iloc[0]
+selected_country = st.sidebar.selectbox("1. 출발 국가(지역) 선택", list(country_risk_matrix.keys()))
+selected_item = st.sidebar.selectbox("2. 반입 품목 코드 선택", list(item_risk_matrix.keys()))
+cargo_type = st.sidebar.radio("3. 화물 반입 형태(SCM Variable)", ["LCL (소량 혼재 화물)", "FCL (단독 대량 화물)"])
 
-    final_score = result_data['final_score']
+# 4. 실시간 동적 리스크 연산 코어 알고리즘
+country_base_risk = country_risk_matrix[selected_country]
+item_density = item_risk_matrix[selected_item]['density']
+item_desc = item_risk_matrix[selected_item]['desc']
 
-    # 4. 결과 출력
-    st.write("")
-    st.write(">> 데이터 분석 엔진 가동 중...")
-    
-    st.markdown(f"""
-        <div class="result-box">
-            <p style="color: #00d4ff; font-size: 26px; letter-spacing: 3px;">종합 위험 지수 (RISK INDEX)</p>
-            <p class="score-text">{final_score:.1f}%</p>
-            <p style="color: #58a6ff; font-size: 18px;">전체 화물 조합 대비 상대적 위험 수준</p>
-        </div>
-    """, unsafe_allow_html=True)
+# 사용자의 로직 반영: LCL일 때만 가중치 활성화, FCL이면 가중치 1.0(배제)
+if cargo_type == "LCL (소량 혼재 화물)":
+    scm_weight = item_risk_matrix[selected_item]['lcl_weight']
+    status_text = "⚠️ LCL 공급망 사각지대 가중치 필터 작동 중"
+else:
+    scm_weight = 1.0
+    status_text = "✅ FCL 단독 컨테이너 안전 표준 가중치 적용 (가중치 배제)"
 
-    # 5. 위험도 알림
-    st.write("---")
-    if final_score >= 85:
-        st.error(f"🚨 [경보] 고위험 화물 감지: 상위 {100-final_score:.1f}% 내에 있는 우범군입니다. 즉시 개장 검사를 권고합니다.")
-    elif final_score >= 50:
-        st.warning(f"⚠️ [주의] 중점 관리 대상: 평균 위험 수치를 상회합니다. 선별 검사를 권장합니다.")
+# 종합 위험도 산출 공식
+scm_adjusted_item_risk = item_density * scm_weight
+final_comprehensive_risk = country_base_risk * scm_adjusted_item_risk
+
+# 5. 메인 대시보드 화면 렌더링 및 대칭 시각화
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(label="🌐 국가별 기본 위험 지수", value=f"{country_base_risk:.2f} / 5.00", delta=selected_country)
+
+with col2:
+    st.metric(label="📦 SCM 보정 품목 위험밀도", value=f"{scm_adjusted_item_risk:.2f}", delta=f"적용 가중치: x{scm_weight:.2f}", delta_color="inverse" if scm_weight > 1.0 else "normal")
+
+with col3:
+    # 최종 점수 기반 위험 등급 분류
+    if final_comprehensive_risk >= 6.0:
+        badge = "🚨 [심각] 즉시 정밀 개장 검사 대상"
+    elif final_comprehensive_risk >= 3.5:
+        badge = "⚠️ [주의] X-ray 집중 판독 대상"
     else:
-        st.success(f"✅ [안전] 저위험 화물: 신속 통관 프로세스 유지가 가능합니다.")
+        badge = "🟢 [일반] 상시 선별 검사 대상"
+    st.metric(label="🎯 최종 컴플라이언스 종합 위험도", value=f"{final_comprehensive_risk:.2f}", delta=badge, delta_color="off")
+
+st.markdown("---")
+
+# 6. 실무 데이터 매칭 컨텍스트 서술 파트
+st.subheader("🔍 프로파일링 대상 화물 SCM 명세 분석")
+detail_df = pd.DataFrame({
+    "평가 변수 항목": ["분석 대상 국가", "타겟 품목명", "은닉 특성 리스크 리포트", "선택된 공급망 형태", "최종 리스크 매트릭스 수식"],
+    "상세 모니터링 데이터": [
+        selected_country,
+        selected_item,
+        item_desc,
+        cargo_type,
+        f"국가 지수({country_base_risk}) × [품목 밀도({item_density}) × 가중치({scm_weight})] = {final_comprehensive_risk:.2f}"
+    ]
+})
+st.table(detail_df)
+
+st.info(f"💡 **시스템 메시지:** {status_text} | 현업 단속용 실시간 API 연결 대기 중.")
