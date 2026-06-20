@@ -169,7 +169,7 @@ st.markdown("""
         <h1 style='font-size: 40px; font-weight: 800; color: #191F28; margin: 0; letter-spacing: -0.5px;'>장보고 스코어링 모델 <span style='font-size: 26px; color: #8B95A1; font-weight: 500;'>JANG BOGO</span></h1>
         <div style='font-size: 15px; color: #4E593E; font-weight: 600; margin-top: 4px;'>Incheon National University</div>
     </div>
-    """, unsafe_style_html=True)
+    """, unsafe_allow_html=True)
 st.write("---")
 
 
@@ -317,4 +317,4 @@ with right_dashboard:
     st.markdown("</div>", unsafe_style_html=True)
 
 st.write("---")
-st.markdown(f"<div style='text-align:right; font-size:12px; color:#B0B8C1; font-weight:500;'>INU SCM LOGISTICS SECURITY LAB | ENGINE STATUS: ACTIVE ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})</div>", unsafe_style_html=True)
+st.markdown(f"<div style='text-align:right; font-size:12px; color:#B0B8C1; font-weight:500;'>INU SCM LOGISTICS SECURITY LAB | ENGINE STATUS: ACTIVE ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})</div>", unsafe_allow_html=True)
