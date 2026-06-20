@@ -7,6 +7,7 @@ import urllib.parse
 import numpy as np
 import time
 from sklearn.cluster import KMeans
+import plotly.graph_objects as go  # 3차원 디지털 지도 구현을 위한 Plotly 추가
 
 # ====================================================================
 # 1. 페이지 레이아웃 및 국경관제실 전용 프리미엄 미드나잇 다크 CSS
@@ -180,17 +181,22 @@ def load_and_compile_master_engine():
     for _ in range(100):
         c_r = np.random.choice(list(country_risk_matrix.values()))
         i_w = np.random.choice([v['weight'] for v in item_risk_matrix.values()])
+        # 시각화의 스케일 가독성을 극대화하기 위해 실제 연산에 매핑되는 화물 중량 스케일(10~5000)로 가상 데이터셋 동기화
         w_f = np.random.uniform(10, 5000)
         mock_samples.append([c_r, i_w, w_f])
         
     X_train = np.array(mock_samples)
     kmeans_model = KMeans(n_clusters=3, random_state=42, n_init=10)
     kmeans_model.fit(X_train)
+    
+    # 3D 시각화 기저 플롯 렌더링을 위해 가상 데이터셋 DataFrame도 함께 반환하도록 고도화
+    df_mock = pd.DataFrame(X_train, columns=['국가리스크', '물품가중치', '화물중량'])
+    df_mock['Cluster'] = kmeans_model.labels_
         
-    return country_risk_matrix, item_risk_matrix, weights, kmeans_model
+    return country_risk_matrix, item_risk_matrix, weights, kmeans_model, df_mock
 
 try:
-    country_risk_matrix, item_risk_matrix, year_weights, ai_kmeans_engine = load_and_compile_master_engine()
+    country_risk_matrix, item_risk_matrix, year_weights, ai_kmeans_engine, df_ai_space = load_and_compile_master_engine()
 except Exception as e:
     st.error(f"⚠️ 데이터 파일 및 AI 엔진 연동 실패: {e}.")
     st.stop()
@@ -215,7 +221,7 @@ def scan_realtime_global_issue(country_name):
 
 
 # ====================================================================
-# 2. 상단 헤더 브랜딩 (요청에 의거 딴말 추가 없이 제목/소제목만 깔끔하게 노출)
+# 2. 상단 헤더 브랜딩
 # ====================================================================
 st.markdown("""
     <div style='padding: 8px 0px 16px 0px;'>
@@ -241,13 +247,12 @@ with st.sidebar.form(key='security_panel'):
 
 
 # ====================================================================
-# 4. 확인 및 1초 로딩 메커니즘 (흰색 알림창 조건부 완전 제거)
+# 4. 확인 및 1초 로딩 메커니즘
 # ====================================================================
 if submit_button:
     with st.spinner("🔒 AI 다차원 클러스터링 알고리즘 및 국경 인텔리전스 위협 요소를 정밀 매핑 중..."):
         time.sleep(1.0)
 else:
-    # 최초 구동 시나 값 변경 중일 때 흰색 알림창이 안 뜨도록 바로 렌더링 중단 처리
     st.stop()
 
 
@@ -383,6 +388,70 @@ with left_dashboard:
             </tr>
         </table>
     """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # 🌐 [추가 기능] 3차원 인공지능 위협 인지 디지털 지도 매핑 공간
+    st.markdown("<div class='toss-card'><div class='toss-title'>🔮 AI 다차원 위협 인지 시각화 공간 (3D Digital Map)</div>", unsafe_allow_html=True)
+    st.write("<span style='font-size:13px; color:#94A3B8;'>💡 마우스 드래그로 360도 회전 및 휠 스크롤을 통한 확대·축소 관제가 가능합니다.</span>", unsafe_allow_html=True)
+    
+    # Plotly 3D 그래프 아키텍처 정의
+    fig_3d = go.Figure()
+    
+    cluster_colors_map = {0: "#10B981", 1: "#F59E0B", 2: "#8B5CF6"}
+    cluster_names_map = {0: "일반 유통 소비재군", 1: "고중량 인프라 화물군", 2: "고위험 우회 루트 의심군"}
+    
+    # 100개 가상 학습 데이터 기저 뿌리기
+    for cluster_id in range(3):
+        c_space = df_ai_space[df_ai_space['Cluster'] == cluster_id]
+        fig_3d.add_trace(go.Scatter3d(
+            x=c_space['국가리스크'],
+            y=c_space['물품가중치'],
+            z=c_space['화물중량'],
+            mode='markers',
+            marker=dict(size=4, color=cluster_colors_map[cluster_id], opacity=0.5),
+            name=cluster_names_map[cluster_id]
+        ))
+        
+    # K-Means 수학적 중심점(Centroid) 렌더링
+    centroids = ai_kmeans_engine.cluster_centers_
+    fig_3d.add_trace(go.Scatter3d(
+        x=centroids[:, 0],
+        y=centroids[:, 1],
+        z=centroids[:, 2],
+        mode='markers',
+        marker=dict(size=8, color="#FFFFFF", symbol="diamond", line=dict(color="#000000", width=1)),
+        name="AI 군집별 연산 중심점"
+    ))
+    
+    # 🔥 현재 세관원이 실시간 입력하여 스캔한 화물의 위치 추적 크로스헤어 바인딩
+    fig_3d.add_trace(go.Scatter3d(
+        x=[raw_country_risk],
+        y=[item_w],
+        z=[cargo_weight],
+        mode='markers',
+        marker=dict(size=12, color="#EF4444", symbol="x", line=dict(color="#FFFFFF", width=2)),
+        name="🔥 현재 타깃 통관 화물"
+    ))
+    
+    # 대시보드 프리미엄 다크 테마 공간 스타일 가속 매핑
+    fig_3d.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=0, r=0, b=0, t=20),
+        height=450,
+        scene=dict(
+            xaxis_title="국가 통계 리스크 (X)",
+            yaxis_title="물품 고유 가중치 (Y)",
+            zaxis_title="화물 실제 중량 (Z)",
+            xaxis=dict(gridcolor="#3A506B", zerolinecolor="#3A506B"),
+            yaxis=dict(gridcolor="#3A506B", zerolinecolor="#3A506B"),
+            zaxis=dict(gridcolor="#3A506B", zerolinecolor="#3A506B")
+        ),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5)
+    )
+    
+    st.plotly_chart(fig_3d, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 with right_dashboard:
