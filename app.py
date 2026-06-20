@@ -18,7 +18,7 @@ st.set_page_config(
 # 토스 고유의 폰트 간격, 부드러운 회색 배경, 둥근 카드 형태 및 관세청 다크 블루 포인트 조합
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght=400;600;700&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Pretendard', sans-serif;
@@ -71,7 +71,7 @@ st.markdown("""
         margin-bottom: 4px;
     }
     </style>
-    """, unsafe_style_html=True)
+    """, unsafe_allow_html=True)
 
 
 # ====================================================================
@@ -81,7 +81,7 @@ st.markdown("""
 def load_and_compile_master_engine():
     """
     제공된 국가별 분기 통계 및 품목 가중치 근거 데이터를 기반으로
-    요구조건 1, 2, 3번 공식을 정확히 프리컴파일합니다.
+    요구조건 공식을 정확히 프리컴파일합니다.
     """
     df_country = pd.read_csv('2022-2025년 마약 분기별 통계.xlsx - 국가별_분기별_통계_통합.csv')
     df_item = pd.read_csv('2022-2025년 마약 분기별 통계.xlsx - 품목가중치근거.csv')
@@ -189,9 +189,8 @@ cargo_type = st.sidebar.radio("🚢 유통 형태 선택", ["LCL (소량 혼재 
 # [A] 국가 위험도 (엑셀 자동 추출 고정 상수)
 raw_country_risk = country_risk_matrix[selected_country]
 
-# [B] 물품 위험도 = 4번 수식 기저 변환
-# 위험밀도 = (연도별가중치 * 위험품목가중치) / log10(수입중량)
-current_year_w = year_weights['2025'] # 리스크 민감도가 높은 최신 2025 가중치(1.5) 준거점 적용
+# [B] 물품 위험도 연산
+current_year_w = year_weights['2025'] # 최신 2025 가중치(1.5) 준거점 적용
 item_w = item_risk_matrix[selected_item]['weight']
 item_desc = item_risk_matrix[selected_item]['desc']
 
@@ -245,17 +244,17 @@ st.markdown(f"""
             </div>
         </div>
     </div>
-    """, unsafe_style_html=True)
+    """, unsafe_allow_html=True)
 
 
 # ====================================================================
-# 6. 좌우 2분할 레이아웃 대시보드 아키텍처 (요청사항 100% 만족)
+# 6. 좌우 2분할 레이아웃 대시보드 아키텍처
 # ====================================================================
 left_dashboard, right_dashboard = st.columns(2)
 
 # --- [좌측 대시보드] 리스크 진단 근거 ---
 with left_dashboard:
-    st.markdown("<div class='toss-card'><div class='toss-title'>🧠 리스크 진단 근거 대시보드</div>", unsafe_style_html=True)
+    st.markdown("<div class='toss-card'><div class='toss-title'>🧠 리스크 진단 근거 대시보드</div>", unsafe_allow_html=True)
     
     st.markdown(f"""
     <div style='line-height: 1.8; color:#333D4B; font-size:15px;'>
@@ -276,7 +275,7 @@ with left_dashboard:
             </li>
         </ul>
     </div>
-    """, unsafe_style_html=True)
+    """, unsafe_allow_html=True)
     
     # 핵심 데이터 요약 계측 프레임
     df_summary = pd.DataFrame({
@@ -284,17 +283,17 @@ with left_dashboard:
         '정량 계산 결과': [f"{raw_country_risk:.1f} 점", f"{calculated_item_risk:.1f} 점", f"{live_external_score:.1f} 점" if has_external_variable else "평가 제외 (기사 부재)"]
     })
     st.dataframe(df_summary, use_container_width=True, hide_index=True)
-    st.markdown("</div>", unsafe_style_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # --- [우측 대시보드] 글로벌 이슈 대시보드 ---
 with right_dashboard:
-    st.markdown("<div class='toss-card'><div class='toss-title'>🌐 글로벌 이슈 대시보드 (외부실시간변수)</div>", unsafe_style_html=True)
+    st.markdown("<div class='toss-card'><div class='toss-title'>🌐 글로벌 이슈 대시보드 (외부실시간변수)</div>", unsafe_allow_html=True)
     
     st.markdown(f"""
     <div style='background-color:#F2F4F6; padding:14px; border-radius:14px; font-size:14px; color:#333D4B; margin-bottom:18px;'>
         <strong>🔗 실시간 지표 수집 프레임워크:</strong> 현재 시스템은 <strong>{selected_country}</strong>발 보도 리스크 메트릭을 실시간 크롤링하여 동적 연산 지표로 인입하고 있습니다.
     </div>
-    """, unsafe_style_html=True)
+    """, unsafe_allow_html=True)
     
     # 🔥 [핵심 조건 분기] 기사가 존재할 때만 하이퍼링크 생성 및 노출, 없으면 없다고 표출
     if has_external_variable:
@@ -310,11 +309,11 @@ with right_dashboard:
         st.markdown("""
             <div style='text-align:center; padding:40px 10px; color:#B0B8C1; font-size:14px; font-weight:500;'>
                 🔍 LIVE FEEDS NOT FOUND<br>
-                <span style='font-size:12px; color:#CCDCFF;'>장보고 예외 처리 엔진 가동: 순수 통계 데이터 모드로 자동 전환되었습니다.</span>
+                <span style='font-size:12px; color:#A4B6E6;'>장보고 예외 처리 엔진 가동: 순수 통계 데이터 모드로 자동 전환되었습니다.</span>
             </div>
-            """, unsafe_style_html=True)
+            """, unsafe_allow_html=True)
             
-    st.markdown("</div>", unsafe_style_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 st.write("---")
 st.markdown(f"<div style='text-align:right; font-size:12px; color:#B0B8C1; font-weight:500;'>INU SCM LOGISTICS SECURITY LAB | ENGINE STATUS: ACTIVE ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})</div>", unsafe_allow_html=True)
