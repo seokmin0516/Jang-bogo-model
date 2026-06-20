@@ -76,7 +76,7 @@ st.markdown("""
         font-weight: 600 !important;
     }
     
-    /* 🔥 [버튼 커스텀] 확인 버튼을 관제실 스타일의 와이드한 블루 버튼으로 변경 */
+    /* 확인 버튼을 관제실 스타일의 와이드한 블루 버튼으로 변경 */
     .stButton > button {
         width: 100% !important;
         background-color: #48CAE4 !important;
@@ -210,30 +210,27 @@ st.write("---")
 
 
 # ====================================================================
-# 3. 사이드바 - [제안 반영] 버튼 동기화를 위한 Form 인터페이스 감싸기
+# 3. 사이드바 - 버튼 동기화를 위한 Form 인터페이스 감싸기
 # ====================================================================
 st.sidebar.markdown("<h3 style='color:#FFFFFF; font-weight:700; margin-bottom:12px;'>📋 통관 화물 프로파일</h3>", unsafe_allow_html=True)
 
-# st.sidebar.form을 선언하여 사용자가 모든 입력을 마친 후 버튼을 눌렀을 때만 작동하도록 가둡니다.
 with st.sidebar.form(key='security_panel'):
     selected_country = st.selectbox("🌐 출발 국가(Origin) 선택", list(country_risk_matrix.keys()))
     selected_item = st.selectbox("📦 반입 품목(Item Classification)", list(item_risk_matrix.keys()))
     cargo_weight = st.number_input("⚖️ 화물 실중량 입력 (kg)", min_value=1.0, value=2000.0, step=100.0)
     cargo_type = st.radio("🚢 유통 형태 선택", ["LCL (소량 혼재 화물)", "FCL (단독 대량 화물)"])
     
-    # 맨 밑에 배치되는 확인(제출) 버튼
-    submit_button = st.form_submit_submit_button(label='🔍 국경 보안 스캔 실행')
+    # 🔥 [버그 해결] 올바른 Streamlit 내장 함수로 전면 수정완료
+    submit_button = st.form_submit_button(label='🔍 국경 보안 스캔 실행')
 
 
 # ====================================================================
-# 4. [확인 및 로딩 메커니즘 가동] 
+# 4. 확인 및 로딩 메커니즘 가동 
 # ====================================================================
-# 사용자가 버튼을 누르면 1초간 로딩을 띄운 뒤 연산 결과를 보여줍니다.
 if submit_button:
     with st.spinner("🔒 통합 물류 공급망 및 실시간 동적 국경 인텔리전스 위협 요소를 정밀 스캔 중..."):
         time.sleep(1.0) # ⏳ 요청하신 대기 시간 1초 부여
 else:
-    # 앱이 처음 켜졌거나 입력을 바꾼 뒤 아직 버튼을 누르지 않은 상태 알림
     st.info("💡 사이드바 패널에서 프로파일 정보를 입력 또는 변경하신 후, 하단의 [🔍 국경 보안 스캔 실행] 버튼을 눌러주세요.")
     st.stop()
 
@@ -247,7 +244,6 @@ item_w = item_risk_matrix[selected_item]['weight']
 item_desc = item_risk_matrix[selected_item]['desc']
 base_excel_item_risk = item_risk_matrix[selected_item]['calculated_risk']
 
-# 품목 카테고리 정의 (벌크형 대형 화물 vs 일상 소비재 위장 화물)
 high_bulk_items = ["목재", "특수 기계류", "컴퓨터, 자재", "가전제품"]
 
 if selected_item in high_bulk_items:
@@ -262,10 +258,121 @@ else:
         dynamic_item_risk = base_excel_item_risk * 0.85
         weight_logic_desc = "소비재 대형 정상 화물 위험도 감쇄 적용 (-15%)"
 
-# 유통 형태(LCL) 결합 조건
 if cargo_type == "LCL (소량 혼재 화물)":
     calculated_item_risk = dynamic_item_risk * item_w
     lcl_penalty_status = f"가동 중 (품목 가중치 {item_w}배 추가 승산)"
 else:
     calculated_item_risk = dynamic_item_risk
-    lcl
+    lcl_penalty_status = "정상 통관 (FCL 단독 컨테이너 적용)"
+
+live_news_feeds = scan_realtime_global_issue(selected_country)
+
+if len(live_news_feeds) > 0:
+    has_external_variable = True
+    live_external_score = 50.0 if len(live_news_feeds) == 1 else (80.0 if len(live_news_feeds) == 2 else 100.0)
+    final_score = ((raw_country_risk + calculated_item_risk) * 0.7) + (live_external_score * 0.3)
+else:
+    has_external_variable = False
+    live_external_score = 0.0
+    final_score = (raw_country_risk + calculated_item_risk) / 2.0
+
+final_score = round(min(100.0, max(0.0, final_score)), 1)
+
+
+# ====================================================================
+# 6. 상단 토탈 리스크 알림 전광판 (사이렌 다크 레드/그린 테마)
+# ====================================================================
+status_color = "#EF4444" if final_score >= 65 else ("#F59E0B" if final_score >= 45 else "#10B981")
+status_text = "🚨 [고위험 전수 검사 전환]" if final_score >= 65 else ("⚠️ [지정 유의 통관 대상]" if final_score >= 45 else "🟢 [원스톱 프리패스 대상]")
+
+st.markdown(f"""
+    <div class='toss-card' style='background-color: #111827; border: 2px solid {status_color}; padding: 36px;'>
+        <div style='font-size: 14px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px;'>DYNAMIC RISK SECURITY INDEX (100 PTS MAX)</div>
+        <div style='display: flex; justify-content: space-between; align-items: center; margin-top: 10px;'>
+            <div style='font-size: 52px; font-weight: 800; color: #FFFFFF; letter-spacing: -1.5px;'>
+                {final_score} <span style='font-size: 22px; color: #94A3B8; font-weight: 500;'>/ 100.0 pts</span>
+            </div>
+            <div style='background-color: {status_color}; color: #FFFFFF; font-size: 16px; font-weight: 700; padding: 12px 24px; border-radius: 16px;'>
+                {status_text}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ====================================================================
+# 7. 좌우 2분할 레이아웃 대시보드 아키텍처
+# ====================================================================
+left_dashboard, right_dashboard = st.columns(2)
+
+with left_dashboard:
+    st.markdown("<div class='toss-card'><div class='toss-title'>🧠 공급망 중량 이중성 가중 매트릭스</div>", unsafe_allow_html=True)
+    
+    st.markdown(f"""
+    <div style='line-height: 1.8; color:#E2E8F0; font-size:15px;'>
+        <ul>
+            <li><strong>국가별 누적 통계 위험도:</strong> <span style='color:#48CAE4; font-weight:700;'>{raw_country_risk:.2f}점</span></li>
+            <li style='margin-top:10px;'><strong>중량 로직 필터 결과:</strong> <span style='color:#F59E0B; font-weight:700;'>{weight_logic_desc}</span></li>
+            <li style='margin-top:10px;'><strong>연산 최종 물품 위험도:</strong> <span style='color:#48CAE4; font-weight:700;'>{calculated_item_risk:.2f}점</span></li>
+            <li style='margin-top:10px;'><strong>LCL 패널티 필터 상태:</strong> <span style='color:#F87171; font-weight:700;'>{lcl_penalty_status}</span></li>
+            <li style='margin-top:10px;'><strong>관세청 마약 적발 백서 근거:</strong><br>
+                <div style='background-color:#111827; padding:12px; border-radius:12px; font-size:14px; border-left:3px solid #48CAE4; color:#CBD5E1; margin-top:4px;'>
+                    💡 <em>"{item_desc}"</em>
+                </div>
+            </li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    live_ext_str = f"{live_external_score:.1f} 점" if has_external_variable else "평가 제외 (미반영)"
+    st.markdown(f"""
+        <table class='custom-dark-table'>
+            <tr>
+                <th>국경 리스크 계측 요인</th>
+                <th>정량 계산 스케일</th>
+            </tr>
+            <tr>
+                <td>국가 고유 리스크 상수</td>
+                <td><b>{raw_country_risk:.1f} 점</b></td>
+            </tr>
+            <tr>
+                <td>물품 위험도 점수 (중량 조건부)</td>
+                <td><b>{calculated_item_risk:.1f} 점</b></td>
+            </tr>
+            <tr>
+                <td>실시간 글로벌 변수 스코어</td>
+                <td><b>{live_ext_str}</b></td>
+            </tr>
+        </table>
+    """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with right_dashboard:
+    st.markdown("<div class='toss-card'><div class='toss-title'>🌐 글로벌 오픈 소스 인텔리전스 (OSINT)</div>", unsafe_allow_html=True)
+    
+    st.markdown(f"""
+    <div style='background-color:#111827; padding:14px; border-radius:14px; font-size:14px; color:#94A3B8; margin-bottom:18px; border: 1px solid #1F2937;'>
+        <strong>📡 동적 인텔리전스 모듈:</strong> 출발국 <strong>[{selected_country}]</strong> 관련 통관 리스크 위협 기사를 구글 실시간 통신망을 통해 백그라운드 추적 중입니다.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if has_external_variable:
+        st.info(f"📡 현시점 웹상에서 유효한 **[{selected_country}]** 발 실시간 마약 밀수 및 보안 위협 뉴스 속보가 탐지되었습니다.")
+        st.write("")
+        for idx, news in enumerate(live_news_feeds):
+            st.markdown(f"**📌 [{idx+1}] {news['title']}**")
+            st.link_button("🌐 보안 분석 보고서(원문 뉴스) 보기", news['link'], use_container_width=True)
+            st.write("")
+    else:
+        st.success(f"🟢 현재 글로벌 망 내에 **[{selected_country}]** 관련 돌발적인 밀수 리스크 특이 속보가 없습니다.")
+        st.markdown("""
+            <div style='text-align:center; padding:40px 10px; color:#4B5563; font-size:14px; font-weight:500;'>
+                🔍 LIVE FEEDS NOT FOUND<br>
+                <span style='font-size:12px; color:#6B7280;'>장보고 예외 처리 규정 가동: 통계 모드로 자동 전환되었습니다.</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+    st.markdown("</div>", unsafe_allow_html=True)
+
+st.write("---")
+st.markdown(f"<div style='text-align:right; font-size:12px; color:#6B7280; font-weight:500;'>INU SCM LOGISTICS SECURITY LAB | ENGINE STATUS: NIGHT WATCH MODE ACTIVE ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})</div>", unsafe_allow_html=True)
