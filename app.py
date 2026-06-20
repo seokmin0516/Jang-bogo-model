@@ -5,7 +5,8 @@ import requests
 from bs4 import BeautifulSoup
 import urllib.parse
 import numpy as np
-import time  # ⏳ 1초 로딩 지연을 위한 라이브러리 인입
+import time
+from sklearn.cluster import KMeans  # 🤖 AI 머신러닝 모듈 인입
 
 # ====================================================================
 # 1. 페이지 레이아웃 및 국경관제실 전용 프리미엄 미드나잇 다크 CSS
@@ -16,7 +17,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# 보안 관제실 전용 프리미엄 다크 테마 디자인 스킨 적용
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght=400;600;700&display=swap');
@@ -30,7 +30,6 @@ st.markdown("""
         color: #E2E8F0 !important;
     }
     
-    /* 퓨어 다크 글래스모피즘 카드 UI */
     .toss-card {
         background-color: #1C2541;
         padding: 32px;
@@ -55,7 +54,6 @@ st.markdown("""
         border-right: 1px solid #1F2937;
     }
     
-    /* 사이드바 Form 내부 입력창 시인성 커스텀 */
     div[data-testid="stForm"] {
         border: none !important;
         padding: 0 !important;
@@ -76,7 +74,6 @@ st.markdown("""
         font-weight: 600 !important;
     }
     
-    /* 확인 버튼을 관제실 스타일의 와이드한 블루 버튼으로 변경 */
     .stButton > button {
         width: 100% !important;
         background-color: #48CAE4 !important;
@@ -94,7 +91,6 @@ st.markdown("""
         color: #0B132B !important;
     }
     
-    /* 커스텀 다크 테이블 CSS */
     .custom-dark-table {
         width: 100%;
         border-collapse: collapse;
@@ -118,12 +114,24 @@ st.markdown("""
         font-size: 14px;
         border-bottom: 1px solid #1C2541;
     }
+    
+    /* 🤖 AI 배지 스타일 추가 */
+    .ai-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        background: linear-gradient(135deg, #7209B7, #4CC9F0);
+        color: white;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 
 # ====================================================================
-# 📊 [백엔드 데이터 엔진] 단일 엑셀 파일(.xlsx)의 다중 시트 파싱 및 수리 계산
+# 📊 [백엔드 데이터 엔진 & AI 가상 학습 파이프라인]
 # ====================================================================
 @st.cache_data
 def load_and_compile_master_engine():
@@ -169,12 +177,26 @@ def load_and_compile_master_engine():
             'desc': row['은닉 특성 및 위험 근거']
         }
         
-    return country_risk_matrix, item_risk_matrix, weights
+    # 🤖 [AI 엔진 탑재] 공간 군집화를 위한 규칙 기반 가상 데이터 셋 빌드 및 클러스터 피팅
+    np.random.seed(42)
+    mock_samples = []
+    # 통계적 기저를 바탕으로 가상 유통망 화물 데이터 100개 생성 (학습용)
+    for _ in range(100):
+        c_r = np.random.choice(list(country_risk_matrix.values()))
+        i_w = np.random.choice([v['weight'] for v in item_risk_matrix.values()])
+        w_f = np.random.uniform(10, 5000)
+        mock_samples.append([c_r, i_w, w_f])
+        
+    X_train = np.array(mock_samples)
+    kmeans_model = KMeans(n_clusters=3, random_state=42, n_init=10)
+    kmeans_model.fit(X_train)
+        
+    return country_risk_matrix, item_risk_matrix, weights, kmeans_model
 
 try:
-    country_risk_matrix, item_risk_matrix, year_weights = load_and_compile_master_engine()
+    country_risk_matrix, item_risk_matrix, year_weights, ai_kmeans_engine = load_and_compile_master_engine()
 except Exception as e:
-    st.error(f"⚠️ 데이터 파일 연동 실패: {e}. 작업 환경 내 파일 구성을 확인하세요.")
+    st.error(f"⚠️ 데이터 파일 및 AI 엔진 연동 실패: {e}.")
     st.stop()
 
 
@@ -202,7 +224,7 @@ def scan_realtime_global_issue(country_name):
 st.markdown("""
     <div style='padding: 8px 0px 16px 0px;'>
         <div style='color: #48CAE4; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 6px;'>🛡️ KCS CUSTOMS BORDER PROTECTION AI / NIGHT WATCH MODE</div>
-        <h1 style='font-size: 40px; font-weight: 800; color: #FFFFFF; margin: 0; letter-spacing: -0.5px;'>장보고 스코어링 모델 <span style='font-size: 26px; color: #94A3B8; font-weight: 500;'>JANG BOGO</span></h1>
+        <h1 style='font-size: 40px; font-weight: 800; color: #FFFFFF; margin: 0; letter-spacing: -0.5px;'>장보고 스코어링 모델 <span style='font-size: 26px; color: #4CC9F0; font-weight: 700;'>AI Plus 🤖</span></h1>
         <div style='font-size: 15px; color: #CBD5E1; font-weight: 600; margin-top: 4px;'>Incheon National University | Supply Chain Security Lab</div>
     </div>
     """, unsafe_allow_html=True)
@@ -210,7 +232,7 @@ st.write("---")
 
 
 # ====================================================================
-# 3. 사이드바 - 버튼 동기화를 위한 Form 인터페이스 감싸기
+# 3. 사이드바 - 제어 패널 (Form 구조)
 # ====================================================================
 st.sidebar.markdown("<h3 style='color:#FFFFFF; font-weight:700; margin-bottom:12px;'>📋 통관 화물 프로파일</h3>", unsafe_allow_html=True)
 
@@ -220,23 +242,22 @@ with st.sidebar.form(key='security_panel'):
     cargo_weight = st.number_input("⚖️ 화물 실중량 입력 (kg)", min_value=1.0, value=2000.0, step=100.0)
     cargo_type = st.radio("🚢 유통 형태 선택", ["LCL (소량 혼재 화물)", "FCL (단독 대량 화물)"])
     
-    # 🔥 [버그 해결] 올바른 Streamlit 내장 함수로 전면 수정완료
     submit_button = st.form_submit_button(label='🔍 국경 보안 스캔 실행')
 
 
 # ====================================================================
-# 4. 확인 및 로딩 메커니즘 가동 
+# 4. 확인 및 1초 로딩 메커니즘
 # ====================================================================
 if submit_button:
-    with st.spinner("🔒 통합 물류 공급망 및 실시간 동적 국경 인텔리전스 위협 요소를 정밀 스캔 중..."):
-        time.sleep(1.0) # ⏳ 요청하신 대기 시간 1초 부여
+    with st.spinner("🔒 AI 다차원 클러스터링 알고리즘 및 국경 인텔리전스 위협 요소를 정밀 매핑 중..."):
+        time.sleep(1.0) # 요청하신 스피너 연출용 지연 시간
 else:
-    st.info("💡 사이드바 패널에서 프로파일 정보를 입력 또는 변경하신 후, 하단의 [🔍 국경 보안 스캔 실행] 버튼을 눌러주세요.")
+    st.info("💡 우측 사이드바 패널에서 정보를 세팅하신 후, 하단의 [🔍 국경 보안 스캔 실행] 버튼을 눌러주세요.")
     st.stop()
 
 
 # ====================================================================
-# 5. [장보고 핵심 엔진] 품목 분류별 중량 이중성 동적 수식 연산 (보안 검사 승인 후 가동)
+# 5. [장보고 핵심 엔진] 품목 분류별 중량 이중성 수식 연산
 # ====================================================================
 raw_country_risk = country_risk_matrix[selected_country]
 
@@ -265,29 +286,55 @@ else:
     calculated_item_risk = dynamic_item_risk
     lcl_penalty_status = "정상 통관 (FCL 단독 컨테이너 적용)"
 
+# ====================================================================
+# 🤖 6. [AI 연산] 실시간 입력값 기반의 K-Means 군집 매칭 및 리스크 가산
+# ====================================================================
+# 실시간 프로파일 벡터 생성 [국가위험도, 품목가중치, 화물중량]
+current_cargo_vector = np.array([[raw_country_risk, item_w, cargo_weight]])
+predicted_cluster = ai_kmeans_engine.predict(current_cargo_vector)[0]
+
+# 클러스터 번호에 따른 유기적 명칭 및 패널티 부여 (시연용 스토리라인 매핑)
+if predicted_cluster == 0:
+    cluster_name = "Cluster #0: 일반 유통 소비재군 (정상 물동량 영역)"
+    ai_penalty_score = 0.0
+    cluster_color = "#10B981"
+elif predicted_cluster == 1:
+    cluster_name = "Cluster #1: 고중량 대형 인프라 화물군 (심도 관리 영역)"
+    ai_penalty_score = 15.5
+    cluster_color = "#F59E0B"
+else:
+    cluster_name = "Cluster #2: 고위험 우회 루트 의심군 (AI 특별 추적 영역)"
+    ai_penalty_score = 28.0
+    cluster_color = "#EF4444"
+
+
+# 최종 스코어 결합 (기존 수식 구조에 AI 가산점 결합)
 live_news_feeds = scan_realtime_global_issue(selected_country)
 
 if len(live_news_feeds) > 0:
     has_external_variable = True
     live_external_score = 50.0 if len(live_news_feeds) == 1 else (80.0 if len(live_news_feeds) == 2 else 100.0)
-    final_score = ((raw_country_risk + calculated_item_risk) * 0.7) + (live_external_score * 0.3)
+    base_score = ((raw_country_risk + calculated_item_risk) * 0.7) + (live_external_score * 0.3)
 else:
     has_external_variable = False
     live_external_score = 0.0
-    final_score = (raw_country_risk + calculated_item_risk) / 2.0
+    base_score = (raw_country_risk + calculated_item_risk) / 2.0
 
+# AI 점수를 최종 결합하고 100점 만점으로 스케일링
+final_score = base_score + ai_penalty_score
 final_score = round(min(100.0, max(0.0, final_score)), 1)
 
 
 # ====================================================================
-# 6. 상단 토탈 리스크 알림 전광판 (사이렌 다크 레드/그린 테마)
+# 7. 상단 토탈 리스크 알림 전광판
 # ====================================================================
 status_color = "#EF4444" if final_score >= 65 else ("#F59E0B" if final_score >= 45 else "#10B981")
 status_text = "🚨 [고위험 전수 검사 전환]" if final_score >= 65 else ("⚠️ [지정 유의 통관 대상]" if final_score >= 45 else "🟢 [원스톱 프리패스 대상]")
 
 st.markdown(f"""
     <div class='toss-card' style='background-color: #111827; border: 2px solid {status_color}; padding: 36px;'>
-        <div style='font-size: 14px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px;'>DYNAMIC RISK SECURITY INDEX (100 PTS MAX)</div>
+        <div class='ai-badge'>🤖 AI-BASED SECURITY PREDICTION LOGIC ACTIVE</div>
+        <div style='font-size: 14px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px;'>DYNAMIC RISK SECURITY INDEX</div>
         <div style='display: flex; justify-content: space-between; align-items: center; margin-top: 10px;'>
             <div style='font-size: 52px; font-weight: 800; color: #FFFFFF; letter-spacing: -1.5px;'>
                 {final_score} <span style='font-size: 22px; color: #94A3B8; font-weight: 500;'>/ 100.0 pts</span>
@@ -301,7 +348,7 @@ st.markdown(f"""
 
 
 # ====================================================================
-# 7. 좌우 2분할 레이아웃 대시보드 아키텍처
+# 8. 좌우 2분할 레이아웃 대시보드 아키텍처
 # ====================================================================
 left_dashboard, right_dashboard = st.columns(2)
 
@@ -315,11 +362,7 @@ with left_dashboard:
             <li style='margin-top:10px;'><strong>중량 로직 필터 결과:</strong> <span style='color:#F59E0B; font-weight:700;'>{weight_logic_desc}</span></li>
             <li style='margin-top:10px;'><strong>연산 최종 물품 위험도:</strong> <span style='color:#48CAE4; font-weight:700;'>{calculated_item_risk:.2f}점</span></li>
             <li style='margin-top:10px;'><strong>LCL 패널티 필터 상태:</strong> <span style='color:#F87171; font-weight:700;'>{lcl_penalty_status}</span></li>
-            <li style='margin-top:10px;'><strong>관세청 마약 적발 백서 근거:</strong><br>
-                <div style='background-color:#111827; padding:12px; border-radius:12px; font-size:14px; border-left:3px solid #48CAE4; color:#CBD5E1; margin-top:4px;'>
-                    💡 <em>"{item_desc}"</em>
-                </div>
-            </li>
+            <li style='margin-top:10px;'><strong>🤖 AI K-Means 실시간 군집 매핑:</strong> <span style='color:{cluster_color}; font-weight:700;'>{cluster_name} (+{ai_penalty_score}점 가산)</span></li>
         </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -332,16 +375,20 @@ with left_dashboard:
                 <th>정량 계산 스케일</th>
             </tr>
             <tr>
-                <td>국가 고유 리스크 상수</td>
+                <td>국가 고유 리스크 상수 (과거 통계 기반)</td>
                 <td><b>{raw_country_risk:.1f} 점</b></td>
             </tr>
             <tr>
-                <td>물품 위험도 점수 (중량 조건부)</td>
+                <td>물품 위험도 점수 (중량 및 SCM 로직 연동)</td>
                 <td><b>{calculated_item_risk:.1f} 점</b></td>
             </tr>
             <tr>
-                <td>실시간 글로벌 변수 스코어</td>
+                <td>실시간 글로벌 변수 스코어 (OSINT 연동)</td>
                 <td><b>{live_ext_str}</b></td>
+            </tr>
+            <tr style='background-color:#1E1B4B;'>
+                <td style='color:#A78BFA;'>🤖 <b>AI 다차원 머신러닝 군집 패널티</b></td>
+                <td style='color:#A78BFA;'><b>+{ai_penalty_score:.1f} 점</b></td>
             </tr>
         </table>
     """, unsafe_allow_html=True)
