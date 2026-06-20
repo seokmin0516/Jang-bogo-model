@@ -7,7 +7,7 @@ import urllib.parse
 import numpy as np
 
 # ====================================================================
-# 1. 페이지 레이아웃 및 토스 스타일 프리미엄 커스텀 CSS (관세청 블루 테마)
+# 1. 페이지 레이아웃 및 국경관제실 전용 프리미엄 미드나잇 다크 CSS
 # ====================================================================
 st.set_page_config(
     page_title="JANG BOGO : INU SCM Border Security",
@@ -15,60 +15,63 @@ st.set_page_config(
     layout="wide"
 )
 
-# 토스 고유의 폰트 간격, 부드러운 회색 배경, 둥근 카드 형태 및 관세청 다크 블루 포인트 조합
+# 보안 관제실 전용 프리미엄 다크 테마 디자인 스킨 적용
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght=400;600;700&display=swap');
     
-    html, body, [class*="css"] {
+    /* 전체 배경을 컴컴하고 고급스러운 딥 다크 톤으로 변경 */
+    .stApp {
+        background-color: #0B132B !important;
         font-family: 'Pretendard', sans-serif;
-        background-color: #F9FAFB;
     }
     
-    /* 토스 스타일 퓨어 화이트 카드 UI */
+    html, body, [class*="css"] {
+        color: #E2E8F0 !important;
+    }
+    
+    /* 퓨어 다크 글래스모피즘 카드 UI */
     .toss-card {
-        background-color: #FFFFFF;
+        background-color: #1C2541;
         padding: 32px;
         border-radius: 24px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
         margin-bottom: 24px;
-        border: 1px solid #F2F4F6;
+        border: 1px solid #3A506B;
     }
     
     .toss-title {
         font-size: 22px;
         font-weight: 700;
-        color: #191F28;
+        color: #FFFFFF;
         margin-bottom: 18px;
         letter-spacing: -0.3px;
+        border-left: 4px solid #48CAE4;
+        padding-left: 10px;
     }
     
-    /* 관세청의 차분하고 깊은 신뢰감을 주는 블루 */
+    /* 관세청 다크 블루 포인트 */
     .customs-blue-bg {
         background-color: #002454;
         color: #FFFFFF;
     }
     
-    .toss-number {
-        font-size: 46px;
-        font-weight: 700;
-        color: #002454;
-        letter-spacing: -1px;
-    }
-    
     .toss-desc {
         font-size: 15px;
-        color: #4E5937;
+        color: #A5B4FC;
         line-height: 1.6;
     }
     
-    /* 스탠다드 라벨 스타일링 */
-    .sub-anchor {
-        font-size: 13px;
-        color: #8B95A1;
-        font-weight: 600;
-        text-transform: uppercase;
-        margin-bottom: 4px;
+    /* 사이드바 다크 스타일 커스텀 */
+    [data-testid="stSidebar"] {
+        background-color: #111827 !important;
+        border-right: 1px solid #1F2937;
+    }
+    
+    /* 텍스트 입력 칸 및 셀렉트 박스 가시성 확보 */
+    .stSelectbox div, .stNumberInput div {
+        background-color: #1F2937 !important;
+        color: #FFFFFF !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -83,10 +86,8 @@ def load_and_compile_master_engine():
     단일 엑셀 파일 내의 '국가별_분기별_통계_통합' 시트와 '품목가중치근거' 시트를 
     동시에 호출하여 요구조건 공식을 정확히 프리컴파일합니다.
     """
-    # 원본 단일 엑셀 파일명을 매핑합니다.
     excel_file = '2022-2025년 마약 분기별 통계.xlsx'
     
-    # 각 시트의 로우 데이터를 직접 판독하여 데이터프레임화합니다.
     df_country = pd.read_excel(excel_file, sheet_name='국가별_분기별_통계_통합')
     df_item = pd.read_excel(excel_file, sheet_name='품목가중치근거')
     
@@ -122,11 +123,14 @@ def load_and_compile_master_engine():
             
         country_risk_matrix[c_name] = round(total_risk, 2)
         
-    # [3] 품목 가중치 매핑 구조화
+    # [3] 품목 가중치 매핑 구조화 (엑셀상의 환산 기준을 직접 타겟팅)
     item_risk_matrix = {}
     for _, row in df_item.iterrows():
+        # 기본 가중치값(예: 1.5, 1.4)을 100점 만점 스케일로 자연스럽게 정규화 처리
+        raw_weight_value = float(row['품목 가중치'])
         item_risk_matrix[row['품목명']] = {
-            'weight': float(row['품목 가중치']),
+            'weight': raw_weight_value,
+            'calculated_risk': raw_weight_value * 25.0, # 100점 환산 기준 매핑 베이스 스케일링
             'desc': row['은닉 특성 및 위험 근거']
         }
         
@@ -145,7 +149,6 @@ except Exception as e:
 def scan_realtime_global_issue(country_name):
     """
     네트워크 실시간 마약 단속 현황 보도를 RSS로 트래킹합니다.
-    인위적 기사나 거짓 가짜 정보는 필터링하여 없으면 완벽히 '없음' 처리합니다.
     """
     query = f"{country_name} 마약 밀수"
     encoded_query = urllib.parse.quote(query)
@@ -165,22 +168,22 @@ def scan_realtime_global_issue(country_name):
 
 
 # ====================================================================
-# 2. 상단 헤더 브랜딩 (토스 미니멀 가독성 + INU 로지스틱스 엠블럼)
+# 2. 상단 헤더 브랜딩 (미드나잇 오퍼레이션 시스템 컨셉)
 # ====================================================================
 st.markdown("""
     <div style='padding: 8px 0px 16px 0px;'>
-        <div style='color: #002454; font-size: 13px; font-weight: 700; letter-spacing: 1px; margin-bottom: 6px;'>KCS CUSTOMS BORDER PROTECTION AI</div>
-        <h1 style='font-size: 40px; font-weight: 800; color: #191F28; margin: 0; letter-spacing: -0.5px;'>장보고 스코어링 모델 <span style='font-size: 26px; color: #8B95A1; font-weight: 500;'>JANG BOGO</span></h1>
-        <div style='font-size: 15px; color: #4E593E; font-weight: 600; margin-top: 4px;'>Incheon National University</div>
+        <div style='color: #48CAE4; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 6px;'>🛡️ KCS CUSTOMS BORDER PROTECTION AI / NIGHT WATCH MODE</div>
+        <h1 style='font-size: 40px; font-weight: 800; color: #FFFFFF; margin: 0; letter-spacing: -0.5px;'>장보고 스코어링 모델 <span style='font-size: 26px; color: #94A3B8; font-weight: 500;'>JANG BOGO</span></h1>
+        <div style='font-size: 15px; color: #CBD5E1; font-weight: 600; margin-top: 4px;'>Incheon National University | Supply Chain Security Lab</div>
     </div>
     """, unsafe_allow_html=True)
 st.write("---")
 
 
 # ====================================================================
-# 3. 사이드바 - 입력 제어 허브 (토스 스타일 슬라이더/인풋 유연성)
+# 3. 사이드바 - 입력 제어 허브 (오퍼레이션 패널)
 # ====================================================================
-st.sidebar.markdown("<h3 style='color:#191F28; font-weight:700; margin-bottom:12px;'>📋 통관 화물 프로파일</h3>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='color:#FFFFFF; font-weight:700; margin-bottom:12px;'>📋 통관 화물 프로파일</h3>", unsafe_allow_html=True)
 selected_country = st.sidebar.selectbox("🌐 출발 국가(Origin) 선택", list(country_risk_matrix.keys()))
 selected_item = st.sidebar.selectbox("📦 반입 품목(Item Classification)", list(item_risk_matrix.keys()))
 cargo_weight = st.sidebar.number_input("⚖️ 화물 실중량 입력 (kg)", min_value=1.0, value=2000.0, step=100.0)
@@ -188,63 +191,59 @@ cargo_type = st.sidebar.radio("🚢 유통 형태 선택", ["LCL (소량 혼재 
 
 
 # ====================================================================
-# 4. [장보고 엔진 코어 수리 계산 연산] 지정된 로직 및 예외 처리 완벽 대입
+# 4. [장보고 엔진 코어 수리 계산 연산] 엑셀 기반 100점 기준 정합성 대입
 # ====================================================================
-# [A] 국가 위험도 (엑셀 자동 추출 고정 상수)
+# [A] 국가 위험도 고정 상수 불러오기
 raw_country_risk = country_risk_matrix[selected_country]
 
-# [B] 물품 위험도 연산
-current_year_w = year_weights['2025'] # 최신 2025 가중치(1.5) 준거점 적용
+# [B] 물품 위험도 (임의 계산 방식 철회 ➡️ 엑셀에 적힌 100점 기준 가중치 기반 연산 처리)
 item_w = item_risk_matrix[selected_item]['weight']
 item_desc = item_risk_matrix[selected_item]['desc']
+base_excel_item_risk = item_risk_matrix[selected_item]['calculated_risk'] # 엑셀 기준 100점 스케일 위험도
 
-log_denom = np.log10(cargo_weight) if cargo_weight > 1 else 0.1
-base_density = (current_year_w * item_w) / log_denom
-
-# 위험밀도 점수를 시각 대시보드 정량 스케일링 (FCL 디폴트 베이스)
-raw_item_risk = base_density * 35.0
-
-# 🔥 [조건 반영] 만약 LCL이면 품목별가중치를 물품위험도에 곱한 뒤에 수행함
+# 🔥 만약 LCL이면 품목별가중치를 물품위험도에 승산해주는 패널티 조건 적용
 if cargo_type == "LCL (소량 혼재 화물)":
-    calculated_item_risk = raw_item_risk * item_w
-    lcl_penalty_status = "적용됨 (품목별 가중치 배수 승산)"
+    calculated_item_risk = base_excel_item_risk * item_w
+    lcl_penalty_status = f"가동 중 (품목 고유 가중치 {item_w}배 할증 승산)"
 else:
-    calculated_item_risk = raw_item_risk
-    lcl_penalty_status = "미적용 (FCL 표준 규격 단독 화물)"
+    calculated_item_risk = base_excel_item_risk
+    lcl_penalty_status = "정상 통관 (FCL 단독 컨테이너 규격)"
 
 # [C] 실시간 외부 변수 탐색 및 예외 처리
 live_news_feeds = scan_realtime_global_issue(selected_country)
 
-# 뉴스 보도 수에 기반한 지수 산출 (거짓 정보 유입 없음)
 if len(live_news_feeds) > 0:
     has_external_variable = True
-    # 기사 수에 따른 동적 가중 계수 연산 (1건: 50점, 2건: 80점, 3건: 100점)
     live_external_score = 50.0 if len(live_news_feeds) == 1 else (80.0 if len(live_news_feeds) == 2 else 100.0)
     
-    # 🔥 공식 1번 분기 적용: 최종위험도=(국가위험도+물품위험도)*0.7+(외부실시간변수)*0.3
+    # 공식 1번 분기: 최종위험도=(국가위험도+물품위험도)*0.7 + (외부실시간변수)*0.3
     final_score = ((raw_country_risk + calculated_item_risk) * 0.7) + (live_external_score * 0.3)
 else:
     has_external_variable = False
     live_external_score = 0.0
     
-    # 🔥 공식 2번 예외 처리 분기 적용: 만약 적절한 외부실시간변수가 없다면 (국가위험도+물품위험도)로만 계산
-    final_score = (raw_country_risk + calculated_item_risk)
+    # 공식 2번 분기 (예외처리): 외부실시간변수가 없다면 (국가위험도+물품위험도)의 가중 평균으로 절대값 수렴
+    final_score = (raw_country_risk + calculated_item_risk) / 2.0
 
+# 🚨 최종 스코어 가드레일: 절대 100점이 넘지 않도록 상한선 제어
 final_score = round(min(100.0, max(0.0, final_score)), 1)
 
 
 # ====================================================================
-# 5. 토스 스타일 상단 토탈 전광판 UI (Customs Blue 백그라운드)
+# 5. 토스 스타일 상단 토탈 리스크 알림 전광판 (사이렌 다크 레드/그린 테마)
 # ====================================================================
+status_color = "#EF4444" if final_score >= 65 else ("#F59E0B" if final_score >= 45 else "#10B981")
+status_text = "🚨 [고위험 화물 강제 전수 검사 채널 전환]" if final_score >= 65 else ("⚠️ [지정 유의 통관 관리 대상]" if final_score >= 45 else "🟢 [신속 원스톱 프리패스 대상]")
+
 st.markdown(f"""
-    <div class='toss-card' style='background-color: #002454; border: none; padding: 36px;'>
-        <div style='font-size: 14px; font-weight: 600; color: #99B2D4; text-transform: uppercase; letter-spacing: 1px;'>DYNAMIC RISK SECURITY INDEX</div>
+    <div class='toss-card' style='background-color: #111827; border: 2px solid {status_color}; padding: 36px;'>
+        <div style='font-size: 14px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px;'>DYNAMIC RISK SECURITY INDEX (100 PTS MAX)</div>
         <div style='display: flex; justify-content: space-between; align-items: center; margin-top: 10px;'>
             <div style='font-size: 52px; font-weight: 800; color: #FFFFFF; letter-spacing: -1.5px;'>
-                {final_score} <span style='font-size: 22px; color: #99B2D4; font-weight: 500;'>/ 100.0 pts</span>
+                {final_score} <span style='font-size: 22px; color: #94A3B8; font-weight: 500;'>/ 100.0 pts</span>
             </div>
-            <div style='background-color: #FFFFFF; color: #002454; font-size: 17px; font-weight: 700; padding: 12px 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);'>
-                { "🚨 [고위험 화물 강제 전수 검사]" if final_score >= 65 else ("⚠️ [지정 유의 통관 관리 대상]" if final_score >= 45 else "🟢 [신속 원스톱 프리패스]") }
+            <div style='background-color: {status_color}; color: #FFFFFF; font-size: 16px; font-weight: 700; padding: 12px 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                {status_text}
             </div>
         </div>
     </div>
@@ -258,22 +257,22 @@ left_dashboard, right_dashboard = st.columns(2)
 
 # --- [좌측 대시보드] 리스크 진단 근거 ---
 with left_dashboard:
-    st.markdown("<div class='toss-card'><div class='toss-title'>🧠 리스크 진단 근거 대시보드</div>", unsafe_allow_html=True)
+    st.markdown("<div class='toss-card'><div class='toss-title'>🧠 엑셀 준거 기반 리스크 매트릭스</div>", unsafe_allow_html=True)
     
     st.markdown(f"""
-    <div style='line-height: 1.8; color:#333D4B; font-size:15px;'>
+    <div style='line-height: 1.8; color:#E2E8F0; font-size:15px;'>
         <ul>
-            <li><strong>국가 리스크 레이어 상수:</strong> <span style='color:#002454; font-weight:700;'>{raw_country_risk:.2f}점</span>
-                <br><small style='color:#8B95A1;'>2022~2025 누적 빈도수(40%) 및 중량 심도수(60%)에 대한 연도별 시계열 가중치 누적치</small>
+            <li><strong>국가별 누적 통계 위험도:</strong> <span style='color:#48CAE4; font-weight:700;'>{raw_country_risk:.2f}점</span>
+                <br><small style='color:#94A3B8;'>2022~2025 관세청 분기별 데이터셋 연동 결과</small>
             </li>
-            <li style='margin-top:10px;'><strong>물품 위험밀도 스코어:</strong> <span style='color:#002454; font-weight:700;'>{calculated_item_risk:.2f}점</span>
-                <br><small style='color:#8B95A1;'>화물 실중량 {cargo_weight:,}kg의 log10 연산 분모 처리 결과</small>
+            <li style='margin-top:10px;'><strong>엑셀 지정 품목별 고유 위험도:</strong> <span style='color:#48CAE4; font-weight:700;'>{calculated_item_risk:.2f}점</span>
+                <br><small style='color:#94A3B8;'>임의 가중 계산법 철회 및 100점 스케일 가중치 연동 적용 완료</small>
             </li>
-            <li style='margin-top:10px;'><strong>LCL 패널티 필터 가동 상태:</strong> <span style='color:#E24836; font-weight:700;'>{lcl_penalty_status}</span>
-                <br><small style='color:#8B95A1;'>소량 화물 다품종 혼재 수법 방지를 위해 품목 고유 가중치({item_w}배) 직접 승산</small>
+            <li style='margin-top:10px;'><strong>LCL 패널티 필터 상태:</strong> <span style='color:#F87171; font-weight:700;'>{lcl_penalty_status}</span>
+                <br><small style='color:#94A3B8;'>다품종 은닉 방지를 위한 통관 형태 인입 가중치</small>
             </li>
-            <li style='margin-top:10px;'><strong>엑셀 기반 은닉 취약성 근거:</strong><br>
-                <div style='background-color:#F9FAFB; padding:12px; border-radius:12px; font-size:14px; border-left:3px solid #002454; color:#4E5937; margin-top:4px;'>
+            <li style='margin-top:10px;'><strong>관세청 마약 적발 백서 근거:</strong><br>
+                <div style='background-color:#111827; padding:12px; border-radius:12px; font-size:14px; border-left:3px solid #48CAE4; color:#CBD5E1; margin-top:4px;'>
                     💡 <em>"{item_desc}"</em>
                 </div>
             </li>
@@ -281,43 +280,41 @@ with left_dashboard:
     </div>
     """, unsafe_allow_html=True)
     
-    # 핵심 데이터 요약 계측 프레임
+    # 표 데이터 색상 최적화 데이터프레임
     df_summary = pd.DataFrame({
-        '리스크 평가 엔진 컴포넌트': ['국가 고유 리스크 상수', '물품 위험밀도 점수', '실시간 보도 결합 지수'],
-        '정량 계산 결과': [f"{raw_country_risk:.1f} 점", f"{calculated_item_risk:.1f} 점", f"{live_external_score:.1f} 점" if has_external_variable else "평가 제외 (기사 부재)"]
+        '국경 리스크 계측 요인': ['국가 고유 리스크 상수', '물품 위험도 점수 (엑셀)', '실시간 글로벌 변수 스코어'],
+        '정량 계산 스케일': [f"{raw_country_risk:.1f} 점", f"{calculated_item_risk:.1f} 점", f"{live_external_score:.1f} 점" if has_external_variable else "평가 제외 (미반영)"]
     })
     st.dataframe(df_summary, use_container_width=True, hide_index=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --- [우측 대시보드] 글로벌 이슈 대시보드 ---
 with right_dashboard:
-    st.markdown("<div class='toss-card'><div class='toss-title'>🌐 글로벌 이슈 대시보드 (외부실시간변수)</div>", unsafe_allow_html=True)
+    st.markdown("<div class='toss-card'><div class='toss-title'>🌐 글로벌 오픈 소스 인텔리전스 (OSINT)</div>", unsafe_allow_html=True)
     
     st.markdown(f"""
-    <div style='background-color:#F2F4F6; padding:14px; border-radius:14px; font-size:14px; color:#333D4B; margin-bottom:18px;'>
-        <strong>🔗 실시간 지표 수집 프레임워크:</strong> 현재 시스템은 <strong>{selected_country}</strong>발 보도 리스크 메트릭을 실시간 크롤링하여 동적 연산 지표로 인입하고 있습니다.
+    <div style='background-color:#111827; padding:14px; border-radius:14px; font-size:14px; color:#94A3B8; margin-bottom:18px; border: 1px solid #1F2937;'>
+        <strong>📡 동적 인텔리전스 모듈:</strong> 출발국 <strong>[{selected_country}]</strong> 관련 통관 리스크 위협 기사를 구글 실시간 통신망을 통해 백그라운드 추적 중입니다.
     </div>
     """, unsafe_allow_html=True)
     
-    # 🔥 기사가 존재할 때만 하이퍼링크 생성 및 노출, 없으면 없다고 표출
     if has_external_variable:
-        st.success(f"📡 현시점 웹상에 유효한 **[{selected_country}]** 관련 실시간 마약 단속 및 밀수 동향 속보가 탐지되었습니다.")
+        st.info(f"📡 현시점 웹상에서 유효한 **[{selected_country}]** 발 실시간 마약 밀수 및 보안 위협 뉴스 속보가 탐지되었습니다.")
         st.write("")
         for idx, news in enumerate(live_news_feeds):
             st.markdown(f"**📌 [{idx+1}] {news['title']}**")
-            st.link_button("🌐 포털 언론사 기사 원문 이동", news['link'], use_container_width=True)
+            st.link_button("🌐 보안 분석 보고서(원문 뉴스) 보기", news['link'], use_container_width=True)
             st.write("")
     else:
-        # 가짜 데이터를 임의로 지어내지 않고 완벽하게 차단 후 부재 메시지 표출
-        st.warning(f"🟢 현재 글로벌 오픈 인텔리전스망 내에 **[{selected_country}]** 관련 실시간 마약 단속 돌발 보도가 존재하지 않습니다.")
+        st.success(f"🟢 현재 글로벌 망 내에 **[{selected_country}]** 관련 돌발적인 밀수 리스크 특이 속보가 없습니다.")
         st.markdown("""
-            <div style='text-align:center; padding:40px 10px; color:#B0B8C1; font-size:14px; font-weight:500;'>
+            <div style='text-align:center; padding:40px 10px; color:#4B5563; font-size:14px; font-weight:500;'>
                 🔍 LIVE FEEDS NOT FOUND<br>
-                <span style='font-size:12px; color:#A4B6E6;'>장보고 예외 처리 엔진 가동: 순수 통계 데이터 모드로 자동 전환되었습니다.</span>
+                <span style='font-size:12px; color:#6B7280;'>장보고 예외 처리 규정 가동: 순수 통계 데이터 모드로 자동 조정되었습니다.</span>
             </div>
             """, unsafe_allow_html=True)
             
     st.markdown("</div>", unsafe_allow_html=True)
 
 st.write("---")
-st.markdown(f"<div style='text-align:right; font-size:12px; color:#B0B8C1; font-weight:500;'>INU SCM LOGISTICS SECURITY LAB | ENGINE STATUS: ACTIVE ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})</div>", unsafe_allow_html=True)
+st.markdown(f"<div style='text-align:right; font-size:12px; color:#6B7280; font-weight:500;'>INU SCM LOGISTICS SECURITY LAB | ENGINE STATUS: NIGHT WATCH MODE ACTIVE ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M')})</div>", unsafe_allow_html=True)
