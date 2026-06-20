@@ -75,16 +75,20 @@ st.markdown("""
 
 
 # ====================================================================
-# 📊 [백엔드 데이터 엔진] 제공된 대용량 CSV 통계 완벽 파싱 및 수리 계산
+# 📊 [백엔드 데이터 엔진] 단일 엑셀 파일(.xlsx)의 다중 시트 파싱 및 수리 계산
 # ====================================================================
 @st.cache_data
 def load_and_compile_master_engine():
     """
-    제공된 국가별 분기 통계 및 품목 가중치 근거 데이터를 기반으로
-    요구조건 공식을 정확히 프리컴파일합니다.
+    단일 엑셀 파일 내의 '국가별_분기별_통계_통합' 시트와 '품목가중치근거' 시트를 
+    동시에 호출하여 요구조건 공식을 정확히 프리컴파일합니다.
     """
-    df_country = pd.read_csv('2022-2025년 마약 분기별 통계.xlsx - 국가별_분기별_통계_통합.csv')
-    df_item = pd.read_csv('2022-2025년 마약 분기별 통계.xlsx - 품목가중치근거.csv')
+    # 원본 단일 엑셀 파일명을 매핑합니다.
+    excel_file = '2022-2025년 마약 분기별 통계.xlsx'
+    
+    # 각 시트의 로우 데이터를 직접 판독하여 데이터프레임화합니다.
+    df_country = pd.read_excel(excel_file, sheet_name='국가별_분기별_통계_통합')
+    df_item = pd.read_excel(excel_file, sheet_name='품목가중치근거')
     
     years = ['2022', '2023', '2024', '2025']
     weights = {'2022': 1.0, '2023': 1.2, '2024': 1.2, '2025': 1.5}
@@ -176,7 +180,7 @@ st.write("---")
 # ====================================================================
 # 3. 사이드바 - 입력 제어 허브 (토스 스타일 슬라이더/인풋 유연성)
 # ====================================================================
-st.sidebar.markdown("<h3 style='color:#191F28; font-weight:700; margin-bottom:12px;'>📋 통관 화물 프로파일</h3>", unsafe_style_html=True)
+st.sidebar.markdown("<h3 style='color:#191F28; font-weight:700; margin-bottom:12px;'>📋 통관 화물 프로파일</h3>", unsafe_allow_html=True)
 selected_country = st.sidebar.selectbox("🌐 출발 국가(Origin) 선택", list(country_risk_matrix.keys()))
 selected_item = st.sidebar.selectbox("📦 반입 품목(Item Classification)", list(item_risk_matrix.keys()))
 cargo_weight = st.sidebar.number_input("⚖️ 화물 실중량 입력 (kg)", min_value=1.0, value=2000.0, step=100.0)
@@ -295,7 +299,7 @@ with right_dashboard:
     </div>
     """, unsafe_allow_html=True)
     
-    # 🔥 [핵심 조건 분기] 기사가 존재할 때만 하이퍼링크 생성 및 노출, 없으면 없다고 표출
+    # 🔥 기사가 존재할 때만 하이퍼링크 생성 및 노출, 없으면 없다고 표출
     if has_external_variable:
         st.success(f"📡 현시점 웹상에 유효한 **[{selected_country}]** 관련 실시간 마약 단속 및 밀수 동향 속보가 탐지되었습니다.")
         st.write("")
