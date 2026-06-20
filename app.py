@@ -6,14 +6,13 @@ from bs4 import BeautifulSoup
 import urllib.parse
 import numpy as np
 import time
-from sklearn.cluster import KMeans  # 🤖 AI 머신러닝 모듈 인입
+from sklearn.cluster import KMeans
 
 # ====================================================================
 # 1. 페이지 레이아웃 및 국경관제실 전용 프리미엄 미드나잇 다크 CSS
 # ====================================================================
 st.set_page_config(
-    page_title="JANG BOGO : INU SCM Border Security",
-    page_icon="⚓",
+    page_title="JANG BOGO",
     layout="wide"
 )
 
@@ -115,7 +114,6 @@ st.markdown("""
         border-bottom: 1px solid #1C2541;
     }
     
-    /* 🤖 AI 배지 스타일 추가 */
     .ai-badge {
         display: inline-block;
         padding: 4px 8px;
@@ -177,10 +175,8 @@ def load_and_compile_master_engine():
             'desc': row['은닉 특성 및 위험 근거']
         }
         
-    # 🤖 [AI 엔진 탑재] 공간 군집화를 위한 규칙 기반 가상 데이터 셋 빌드 및 클러스터 피팅
     np.random.seed(42)
     mock_samples = []
-    # 통계적 기저를 바탕으로 가상 유통망 화물 데이터 100개 생성 (학습용)
     for _ in range(100):
         c_r = np.random.choice(list(country_risk_matrix.values()))
         i_w = np.random.choice([v['weight'] for v in item_risk_matrix.values()])
@@ -219,13 +215,12 @@ def scan_realtime_global_issue(country_name):
 
 
 # ====================================================================
-# 2. 상단 헤더 브랜딩
+# 2. 상단 헤더 브랜딩 (요청에 의거 딴말 추가 없이 제목/소제목만 깔끔하게 노출)
 # ====================================================================
 st.markdown("""
     <div style='padding: 8px 0px 16px 0px;'>
-        <div style='color: #48CAE4; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; margin-bottom: 6px;'>🛡️ KCS CUSTOMS BORDER PROTECTION AI / NIGHT WATCH MODE</div>
-        <h1 style='font-size: 40px; font-weight: 800; color: #FFFFFF; margin: 0; letter-spacing: -0.5px;'>장보고 스코어링 모델 <span style='font-size: 26px; color: #4CC9F0; font-weight: 700;'>AI Plus 🤖</span></h1>
-        <div style='font-size: 15px; color: #CBD5E1; font-weight: 600; margin-top: 4px;'>Incheon National University | Supply Chain Security Lab</div>
+        <h1 style='font-size: 40px; font-weight: 800; color: #FFFFFF; margin: 0; letter-spacing: -0.5px;'>장보고 스코어링 모델</h1>
+        <div style='font-size: 18px; color: #CBD5E1; font-weight: 600; margin-top: 6px;'>Incheon National University</div>
     </div>
     """, unsafe_allow_html=True)
 st.write("---")
@@ -246,13 +241,13 @@ with st.sidebar.form(key='security_panel'):
 
 
 # ====================================================================
-# 4. 확인 및 1초 로딩 메커니즘
+# 4. 확인 및 1초 로딩 메커니즘 (흰색 알림창 조건부 완전 제거)
 # ====================================================================
 if submit_button:
     with st.spinner("🔒 AI 다차원 클러스터링 알고리즘 및 국경 인텔리전스 위협 요소를 정밀 매핑 중..."):
-        time.sleep(1.0) # 요청하신 스피너 연출용 지연 시간
+        time.sleep(1.0)
 else:
-    st.info("💡 우측 사이드바 패널에서 정보를 세팅하신 후, 하단의 [🔍 국경 보안 스캔 실행] 버튼을 눌러주세요.")
+    # 최초 구동 시나 값 변경 중일 때 흰색 알림창이 안 뜨도록 바로 렌더링 중단 처리
     st.stop()
 
 
@@ -286,14 +281,13 @@ else:
     calculated_item_risk = dynamic_item_risk
     lcl_penalty_status = "정상 통관 (FCL 단독 컨테이너 적용)"
 
+
 # ====================================================================
-# 🤖 6. [AI 연산] 실시간 입력값 기반의 K-Means 군집 매칭 및 리스크 가산
+# 6. [AI 연산] 실시간 입력값 기반의 K-Means 군집 매칭 및 리스크 가산
 # ====================================================================
-# 실시간 프로파일 벡터 생성 [국가위험도, 품목가중치, 화물중량]
 current_cargo_vector = np.array([[raw_country_risk, item_w, cargo_weight]])
 predicted_cluster = ai_kmeans_engine.predict(current_cargo_vector)[0]
 
-# 클러스터 번호에 따른 유기적 명칭 및 패널티 부여 (시연용 스토리라인 매핑)
 if predicted_cluster == 0:
     cluster_name = "Cluster #0: 일반 유통 소비재군 (정상 물동량 영역)"
     ai_penalty_score = 0.0
@@ -307,8 +301,6 @@ else:
     ai_penalty_score = 28.0
     cluster_color = "#EF4444"
 
-
-# 최종 스코어 결합 (기존 수식 구조에 AI 가산점 결합)
 live_news_feeds = scan_realtime_global_issue(selected_country)
 
 if len(live_news_feeds) > 0:
@@ -320,7 +312,6 @@ else:
     live_external_score = 0.0
     base_score = (raw_country_risk + calculated_item_risk) / 2.0
 
-# AI 점수를 최종 결합하고 100점 만점으로 스케일링
 final_score = base_score + ai_penalty_score
 final_score = round(min(100.0, max(0.0, final_score)), 1)
 
