@@ -50,28 +50,50 @@ st.markdown("""
         padding-left: 10px;
     }
     
-    /* 관세청 다크 블루 포인트 */
-    .customs-blue-bg {
-        background-color: #002454;
-        color: #FFFFFF;
-    }
-    
-    .toss-desc {
-        font-size: 15px;
-        color: #A5B4FC;
-        line-height: 1.6;
-    }
-    
-    /* 사이드바 다크 스타일 커스텀 */
     [data-testid="stSidebar"] {
         background-color: #111827 !important;
         border-right: 1px solid #1F2937;
     }
     
-    /* 텍스트 입력 칸 및 셀렉트 박스 가시성 확보 */
-    .stSelectbox div, .stNumberInput div {
+    /* 입력창 및 셀렉트박스 글자색/테두리 시인성 극대화 */
+    .stSelectbox div, .stNumberInput div, .stRadio div {
         background-color: #1F2937 !important;
         color: #FFFFFF !important;
+    }
+    input {
+        color: #FFFFFF !important;
+        background-color: #1F2937 !important;
+        font-weight: 600 !important;
+        border: 1px solid #48CAE4 !important;
+    }
+    label p {
+        color: #E2E8F0 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* 🔥 [버그 해결] 흰색 네모 상자 방지용 자체 커스텀 다크 테이블 CSS */
+    .custom-dark-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        background-color: #111827;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .custom-dark-table th {
+        background-color: #1F2937;
+        color: #48CAE4;
+        text-align: left;
+        padding: 12px;
+        font-size: 14px;
+        font-weight: 700;
+        border-bottom: 2px solid #3A506B;
+    }
+    .custom-dark-table td {
+        padding: 12px;
+        color: #E2E8F0;
+        font-size: 14px;
+        border-bottom: 1px solid #1C2541;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -82,10 +104,6 @@ st.markdown("""
 # ====================================================================
 @st.cache_data
 def load_and_compile_master_engine():
-    """
-    단일 엑셀 파일 내의 '국가별_분기별_통계_통합' 시트와 '품목가중치근거' 시트를 
-    동시에 호출하여 요구조건 공식을 정확히 프리컴파일합니다.
-    """
     excel_file = '2022-2025년 마약 분기별 통계.xlsx'
     
     df_country = pd.read_excel(excel_file, sheet_name='국가별_분기별_통계_통합')
@@ -95,7 +113,6 @@ def load_and_compile_master_engine():
     weights = {'2022': 1.0, '2023': 1.2, '2024': 1.2, '2025': 1.5}
     quarters = ['1Q', '2Q', '3Q', '4Q']
     
-    # [1] 전체 적발 건수 및 중량 합계 매핑
     total_row = df_country[df_country['국가(지역)'] == '합계'].iloc[0]
     total_stats = {}
     for y in years:
@@ -104,7 +121,6 @@ def load_and_compile_master_engine():
             'weight': sum([float(total_row[f'{y}년 {q} 중량(kg)']) for q in quarters])
         }
         
-    # [2] 공식 대입 국가 위험도 도출
     country_risk_matrix = {}
     for _, row in df_country.iloc[:8].iterrows():
         c_name = row['국가(지역)']
@@ -113,24 +129,20 @@ def load_and_compile_master_engine():
             c_cases = sum([float(row[f'{y}년 {q} 건수']) for q in quarters])
             c_weight = sum([float(row[f'{y}년 {q} 중량(kg)']) for q in quarters])
             
-            # 빈도수/심도수 정의 반영
             freq = (c_cases / total_stats[y]['cases']) * 100 if total_stats[y]['cases'] > 0 else 0
             severity = (c_weight / total_stats[y]['weight']) * 100 if total_stats[y]['weight'] > 0 else 0
             
-            # 국가 위험도 수식
             y_risk = (freq * 0.4 * weights[y]) + (severity * 0.6 * weights[y])
             total_risk += y_risk
             
         country_risk_matrix[c_name] = round(total_risk, 2)
         
-    # [3] 품목 가중치 매핑 구조화 (엑셀상의 환산 기준을 직접 타겟팅)
     item_risk_matrix = {}
     for _, row in df_item.iterrows():
-        # 기본 가중치값(예: 1.5, 1.4)을 100점 만점 스케일로 자연스럽게 정규화 처리
         raw_weight_value = float(row['품목 가중치'])
         item_risk_matrix[row['품목명']] = {
             'weight': raw_weight_value,
-            'calculated_risk': raw_weight_value * 25.0, # 100점 환산 기준 매핑 베이스 스케일링
+            'calculated_risk': raw_weight_value * 25.0,
             'desc': row['은닉 특성 및 위험 근거']
         }
         
@@ -143,13 +155,7 @@ except Exception as e:
     st.stop()
 
 
-# ====================================================================
-# 📡 [실시간 변수 크롤러 엔진] 리스크 팩터 스캔 (거짓 정보 방지 필터링)
-# ====================================================================
 def scan_realtime_global_issue(country_name):
-    """
-    네트워크 실시간 마약 단속 현황 보도를 RSS로 트래킹합니다.
-    """
     query = f"{country_name} 마약 밀수"
     encoded_query = urllib.parse.quote(query)
     url = f"https://news.google.com/rss/search?q={encoded_query}&hl=ko&gl=KR&ceid=KR:ko"
@@ -168,7 +174,7 @@ def scan_realtime_global_issue(country_name):
 
 
 # ====================================================================
-# 2. 상단 헤더 브랜딩 (미드나잇 오퍼레이션 시스템 컨셉)
+# 2. 상단 헤더 브랜딩
 # ====================================================================
 st.markdown("""
     <div style='padding: 8px 0px 16px 0px;'>
@@ -191,49 +197,57 @@ cargo_type = st.sidebar.radio("🚢 유통 형태 선택", ["LCL (소량 혼재 
 
 
 # ====================================================================
-# 4. [장보고 엔진 코어 수리 계산 연산] 엑셀 기반 100점 기준 정합성 대입
+# 4. [장보고 핵심 엔진] 품목 분류별 중량 이중성 동적 수식 연산
 # ====================================================================
-# [A] 국가 위험도 고정 상수 불러오기
 raw_country_risk = country_risk_matrix[selected_country]
 
-# [B] 물품 위험도 (임의 계산 방식 철회 ➡️ 엑셀에 적힌 100점 기준 가중치 기반 연산 처리)
 item_w = item_risk_matrix[selected_item]['weight']
 item_desc = item_risk_matrix[selected_item]['desc']
-base_excel_item_risk = item_risk_matrix[selected_item]['calculated_risk'] # 엑셀 기준 100점 스케일 위험도
+base_excel_item_risk = item_risk_matrix[selected_item]['calculated_risk']
 
-# 🔥 만약 LCL이면 품목별가중치를 물품위험도에 승산해주는 패널티 조건 적용
-if cargo_type == "LCL (소량 혼재 화물)":
-    calculated_item_risk = base_excel_item_risk * item_w
-    lcl_penalty_status = f"가동 중 (품목 고유 가중치 {item_w}배 할증 승산)"
+# 품목 카테고리 정의 (벌크형 대형 화물 vs 일상 소비재 위장 화물)
+high_bulk_items = ["목재", "특수 기계류", "컴퓨터, 자재", "가전제품"]
+
+if selected_item in high_bulk_items:
+    weight_factor = np.log10(cargo_weight + 1) / np.log10(2001)
+    dynamic_item_risk = base_excel_item_risk * weight_factor
+    weight_logic_desc = f"벌크형 고중량 가중 연동 (지수 비율: {weight_factor:.2f}배)"
 else:
-    calculated_item_risk = base_excel_item_risk
-    lcl_penalty_status = "정상 통관 (FCL 단독 컨테이너 규격)"
+    if cargo_weight < 500:
+        dynamic_item_risk = base_excel_item_risk * 1.3
+        weight_logic_desc = "소비재 우회용 소량 쪼개기 밀수 패널티 적용 (+30%)"
+    else:
+        dynamic_item_risk = base_excel_item_risk * 0.85
+        weight_logic_desc = "소비재 대형 정상 화물 위험도 감쇄 적용 (-15%)"
 
-# [C] 실시간 외부 변수 탐색 및 예외 처리
+# 유통 형태(LCL) 결합 조건
+if cargo_type == "LCL (소량 혼재 화물)":
+    calculated_item_risk = dynamic_item_risk * item_w
+    lcl_penalty_status = f"가동 중 (품목 가중치 {item_w}배 추가 승산)"
+else:
+    calculated_item_risk = dynamic_item_risk
+    lcl_penalty_status = "정상 통관 (FCL 단독 컨테이너 적용)"
+
+# 실시간 외부 변수 탐색
 live_news_feeds = scan_realtime_global_issue(selected_country)
 
 if len(live_news_feeds) > 0:
     has_external_variable = True
     live_external_score = 50.0 if len(live_news_feeds) == 1 else (80.0 if len(live_news_feeds) == 2 else 100.0)
-    
-    # 공식 1번 분기: 최종위험도=(국가위험도+물품위험도)*0.7 + (외부실시간변수)*0.3
     final_score = ((raw_country_risk + calculated_item_risk) * 0.7) + (live_external_score * 0.3)
 else:
     has_external_variable = False
     live_external_score = 0.0
-    
-    # 공식 2번 분기 (예외처리): 외부실시간변수가 없다면 (국가위험도+물품위험도)의 가중 평균으로 절대값 수렴
     final_score = (raw_country_risk + calculated_item_risk) / 2.0
 
-# 🚨 최종 스코어 가드레일: 절대 100점이 넘지 않도록 상한선 제어
 final_score = round(min(100.0, max(0.0, final_score)), 1)
 
 
 # ====================================================================
-# 5. 토스 스타일 상단 토탈 리스크 알림 전광판 (사이렌 다크 레드/그린 테마)
+# 5. 상단 토탈 리스크 알림 전광판 (사이렌 다크 레드/그린 테마)
 # ====================================================================
 status_color = "#EF4444" if final_score >= 65 else ("#F59E0B" if final_score >= 45 else "#10B981")
-status_text = "🚨 [고위험 화물 강제 전수 검사 채널 전환]" if final_score >= 65 else ("⚠️ [지정 유의 통관 관리 대상]" if final_score >= 45 else "🟢 [신속 원스톱 프리패스 대상]")
+status_text = "🚨 [고위험 전수 검사 전환]" if final_score >= 65 else ("⚠️ [지정 유의 통관 대상]" if final_score >= 45 else "🟢 [원스톱 프리패스 대상]")
 
 st.markdown(f"""
     <div class='toss-card' style='background-color: #111827; border: 2px solid {status_color}; padding: 36px;'>
@@ -242,7 +256,7 @@ st.markdown(f"""
             <div style='font-size: 52px; font-weight: 800; color: #FFFFFF; letter-spacing: -1.5px;'>
                 {final_score} <span style='font-size: 22px; color: #94A3B8; font-weight: 500;'>/ 100.0 pts</span>
             </div>
-            <div style='background-color: {status_color}; color: #FFFFFF; font-size: 16px; font-weight: 700; padding: 12px 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+            <div style='background-color: {status_color}; color: #FFFFFF; font-size: 16px; font-weight: 700; padding: 12px 24px; border-radius: 16px;'>
                 {status_text}
             </div>
         </div>
@@ -255,22 +269,16 @@ st.markdown(f"""
 # ====================================================================
 left_dashboard, right_dashboard = st.columns(2)
 
-# --- [좌측 대시보드] 리스크 진단 근거 ---
 with left_dashboard:
-    st.markdown("<div class='toss-card'><div class='toss-title'>🧠 엑셀 준거 기반 리스크 매트릭스</div>", unsafe_allow_html=True)
+    st.markdown("<div class='toss-card'><div class='toss-title'>🧠 공급망 중량 이중성 가중 매트릭스</div>", unsafe_allow_html=True)
     
     st.markdown(f"""
     <div style='line-height: 1.8; color:#E2E8F0; font-size:15px;'>
         <ul>
-            <li><strong>국가별 누적 통계 위험도:</strong> <span style='color:#48CAE4; font-weight:700;'>{raw_country_risk:.2f}점</span>
-                <br><small style='color:#94A3B8;'>2022~2025 관세청 분기별 데이터셋 연동 결과</small>
-            </li>
-            <li style='margin-top:10px;'><strong>엑셀 지정 품목별 고유 위험도:</strong> <span style='color:#48CAE4; font-weight:700;'>{calculated_item_risk:.2f}점</span>
-                <br><small style='color:#94A3B8;'>임의 가중 계산법 철회 및 100점 스케일 가중치 연동 적용 완료</small>
-            </li>
-            <li style='margin-top:10px;'><strong>LCL 패널티 필터 상태:</strong> <span style='color:#F87171; font-weight:700;'>{lcl_penalty_status}</span>
-                <br><small style='color:#94A3B8;'>다품종 은닉 방지를 위한 통관 형태 인입 가중치</small>
-            </li>
+            <li><strong>국가별 누적 통계 위험도:</strong> <span style='color:#48CAE4; font-weight:700;'>{raw_country_risk:.2f}점</span></li>
+            <li style='margin-top:10px;'><strong>중량 로직 필터 결과:</strong> <span style='color:#F59E0B; font-weight:700;'>{weight_logic_desc}</span></li>
+            <li style='margin-top:10px;'><strong>연산 최종 물품 위험도:</strong> <span style='color:#48CAE4; font-weight:700;'>{calculated_item_risk:.2f}점</span></li>
+            <li style='margin-top:10px;'><strong>LCL 패널티 필터 상태:</strong> <span style='color:#F87171; font-weight:700;'>{lcl_penalty_status}</span></li>
             <li style='margin-top:10px;'><strong>관세청 마약 적발 백서 근거:</strong><br>
                 <div style='background-color:#111827; padding:12px; border-radius:12px; font-size:14px; border-left:3px solid #48CAE4; color:#CBD5E1; margin-top:4px;'>
                     💡 <em>"{item_desc}"</em>
@@ -280,15 +288,30 @@ with left_dashboard:
     </div>
     """, unsafe_allow_html=True)
     
-    # 표 데이터 색상 최적화 데이터프레임
-    df_summary = pd.DataFrame({
-        '국경 리스크 계측 요인': ['국가 고유 리스크 상수', '물품 위험도 점수 (엑셀)', '실시간 글로벌 변수 스코어'],
-        '정량 계산 스케일': [f"{raw_country_risk:.1f} 점", f"{calculated_item_risk:.1f} 점", f"{live_external_score:.1f} 점" if has_external_variable else "평가 제외 (미반영)"]
-    })
-    st.dataframe(df_summary, use_container_width=True, hide_index=True)
+    # 🔥 [핵심 수정 완료] 기존 st.dataframe()을 완전히 지우고, 흰색 네모 현상이 없는 순수 HTML 다크 스타일 테이블로 교체
+    live_ext_str = f"{live_external_score:.1f} 점" if has_external_variable else "평가 제외 (미반영)"
+    st.markdown(f"""
+        <table class='custom-dark-table'>
+            <tr>
+                <th>국경 리스크 계측 요인</th>
+                <th>정량 계산 스케일</th>
+            </tr>
+            <tr>
+                <td>국가 고유 리스크 상수</td>
+                <td><b>{raw_country_risk:.1f} 점</b></td>
+            </tr>
+            <tr>
+                <td>물품 위험도 점수 (중량 조건부)</td>
+                <td><b>{calculated_item_risk:.1f} 점</b></td>
+            </tr>
+            <tr>
+                <td>실시간 글로벌 변수 스코어</td>
+                <td><b>{live_ext_str}</b></td>
+            </tr>
+        </table>
+    """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- [우측 대시보드] 글로벌 이슈 대시보드 ---
 with right_dashboard:
     st.markdown("<div class='toss-card'><div class='toss-title'>🌐 글로벌 오픈 소스 인텔리전스 (OSINT)</div>", unsafe_allow_html=True)
     
@@ -310,7 +333,7 @@ with right_dashboard:
         st.markdown("""
             <div style='text-align:center; padding:40px 10px; color:#4B5563; font-size:14px; font-weight:500;'>
                 🔍 LIVE FEEDS NOT FOUND<br>
-                <span style='font-size:12px; color:#6B7280;'>장보고 예외 처리 규정 가동: 순수 통계 데이터 모드로 자동 조정되었습니다.</span>
+                <span style='font-size:12px; color:#6B7280;'>장보고 예외 처리 규정 가동: 통계 모드로 자동 전환되었습니다.</span>
             </div>
             """, unsafe_allow_html=True)
             
